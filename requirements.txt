@@ -1,0 +1,5 @@
+# Core scraping / HTTP
+requests>=2.32
+
+# Data analysis (trend tables)
+pandas>=2.2
