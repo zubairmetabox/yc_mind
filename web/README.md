@@ -1,13 +1,17 @@
 # YC_Mind — web dashboard
 
-A mini dashboard for exploring the data the Python pipeline produces (and any
-future re-runs of it) — no rebuild needed when the data changes, since every
-page reads straight from `../data/*.csv` / `*.jsonl` / `.md` at request time.
+A mini dashboard for exploring the data the Python pipeline produces — works
+both as a local dev tool and deployed on Vercel for use from a phone.
 
 Styled to match Metabox's Vaultocrypt design system (same colour tokens, large
-border-radius scale, Geist font, light/dark/system theme toggle).
+border-radius scale, Geist font, light/dark/system theme toggle). Mobile-first:
+a bottom tab bar replaces the sidebar below the `lg` breakpoint, the Companies
+table becomes a card list, and pagination is infinite-scroll.
 
-## Setup
+**Live:** https://yc-mind.vercel.app (Vercel project `yc-mind`, team
+`zubair-1657s-projects`)
+
+## Local setup
 
 ```bash
 pnpm install
@@ -16,7 +20,44 @@ pnpm dev      # http://localhost:3000 (or next available port)
 
 Run the Python pipeline first (`../scripts/scrape_companies.py`,
 `../scripts/build_trends.py`, `../scripts/build_idea_context.py`) so `../data/`
-has something to read — see the repo root README.
+has something to read — see the repo root README. In local dev, `lib/data.ts`
+reads straight from `../data/` (live, no rebuild needed when you re-run those
+scripts) since that directory exists alongside this one in the monorepo.
+
+## Deploying (data + storage)
+
+Vercel only deploys this `web/` directory — `../data/` (the Python pipeline's
+live output) and local `data/curation.json` aren't reachable from a deployed
+serverless function. Two separate fixes for that, already wired in:
+
+**1. Data snapshot.** `lib/data.ts` falls back to a bundled snapshot in
+`./data/` (committed to git) when `../data/` doesn't exist — i.e. automatically
+in production. To refresh the deployed dashboard after re-scraping locally:
+
+```bash
+pnpm sync-data        # copies ../data/*.csv + ideas.md into ./data
+git add data/ && git commit -m "Refresh data snapshot"
+git push
+vercel --prod          # or let the Vercel git integration redeploy
+```
+
+**2. Curation storage — Vercel Blob (manual one-time step, can't be scripted).**
+`lib/curation.ts` uses Vercel Blob in production instead of writing to disk
+(serverless functions can't durably write local files). Until this is set up,
+`/api/curate` returns a clear `503` instead of silently failing.
+
+To enable:
+1. Vercel dashboard → the `yc-mind` project → **Storage** tab → **Create** → **Blob**
+2. That's it — `BLOB_READ_WRITE_TOKEN` gets injected automatically, no redeploy needed (env vars are read per-request, not baked into the build)
+3. Refresh the deployed app and try rating something — it should stick
+
+### Redeploying from the CLI
+
+```bash
+cd web
+vercel --prod --yes
+```
+(Already linked to the `yc-mind` Vercel project via `vercel link`.)
 
 ## Pages
 
@@ -29,11 +70,11 @@ has something to read — see the repo root README.
 
 ## Curation (like/dislike)
 
-Ratings persist to `data/curation.json` (tracked in git, not gitignored like
-the regenerable scrape/trend CSVs) so a Claude session can read what got
-liked/disliked and build curated lists or do targeted follow-up research
-(e.g. funding-history lookups on a liked company) without needing browser
-access. `lib/curation.ts` is the only file that reads/writes it;
+Ratings persist so a Claude session can read what got liked/disliked and
+build curated lists or do targeted follow-up research (e.g. funding-history
+lookups on a liked company) — without needing browser access. Storage is
+dual-mode (see "Deploying" above): `data/curation.json` locally, Vercel Blob
+in production. `lib/curation.ts` is the only file that reads/writes it;
 `POST /api/curate` is the only way the UI touches it.
 
 ## "Why is this rising" notes
