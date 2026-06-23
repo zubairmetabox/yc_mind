@@ -18,7 +18,7 @@ export default function CompaniesPage() {
       website: c.website,
       tags: c.tags,
     }));
-  const { companies: initialCuration } = getCurationState();
+  const { companies: initialCuration, fundingNotes } = getCurationState();
 
   return (
     <div className="flex flex-col gap-6">
@@ -34,7 +34,11 @@ export default function CompaniesPage() {
           industry or batch. Rate companies to build a curated list.
         </p>
       </div>
-      <CompaniesExplorer companies={companies} initialCuration={initialCuration} />
+      <CompaniesExplorer
+        companies={companies}
+        initialCuration={initialCuration}
+        fundingNotes={fundingNotes}
+      />
     </div>
   );
 }

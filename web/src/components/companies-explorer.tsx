@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Search, ExternalLink } from "lucide-react";
+import { Fragment, useMemo, useState } from "react";
+import { Search, ExternalLink, DollarSign, ChevronDown, ChevronRight } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -21,7 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useCuration } from "@/lib/use-curation";
-import type { CurationAction } from "@/lib/curation";
+import type { CurationAction, FundingNote } from "@/lib/curation";
 
 export type SlimCompany = {
   name: string;
@@ -41,15 +41,18 @@ type CurationFilter = "all" | "liked" | "disliked" | "unrated";
 export function CompaniesExplorer({
   companies,
   initialCuration,
+  fundingNotes,
 }: {
   companies: SlimCompany[];
   initialCuration: Record<string, CurationAction>;
+  fundingNotes: Record<string, FundingNote>;
 }) {
   const [query, setQuery] = useState("");
   const [industry, setIndustry] = useState(ALL);
   const [batch, setBatch] = useState(ALL);
   const [curationFilter, setCurationFilter] = useState<CurationFilter>("all");
   const [page, setPage] = useState(0);
+  const [expandedFunding, setExpandedFunding] = useState<string | null>(null);
   const { map: curation, setAction } = useCuration("company", initialCuration);
 
   const industries = useMemo(
@@ -168,49 +171,98 @@ export function CompaniesExplorer({
               <TableHead>Batch</TableHead>
               <TableHead>Industry</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead className="w-10">Funding</TableHead>
               <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {pageItems.map((c) => (
-              <TableRow key={c.slug}>
-                <TableCell>
-                  <LikeDislike
-                    value={curation[c.slug]}
-                    onChange={(action) => setAction(c.slug, action)}
-                  />
-                </TableCell>
-                <TableCell className="font-medium">{c.name}</TableCell>
-                <TableCell className="max-w-[320px] truncate text-muted-foreground">
-                  {c.one_liner}
-                </TableCell>
-                <TableCell className="whitespace-nowrap text-muted-foreground">
-                  {c.batch}
-                </TableCell>
-                <TableCell className="whitespace-nowrap">
-                  {c.industry && <Badge variant="secondary">{c.industry}</Badge>}
-                </TableCell>
-                <TableCell className="whitespace-nowrap text-muted-foreground">
-                  {c.status}
-                </TableCell>
-                <TableCell>
-                  {c.website && (
-                    <a
-                      href={c.website}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-muted-foreground hover:text-foreground"
-                      aria-label={`Open ${c.name} website`}
-                    >
-                      <ExternalLink className="size-3.5" />
-                    </a>
+            {pageItems.map((c) => {
+              const note = fundingNotes[c.slug];
+              const isOpen = expandedFunding === c.slug;
+              return (
+                <Fragment key={c.slug}>
+                  <TableRow>
+                    <TableCell>
+                      <LikeDislike
+                        value={curation[c.slug]}
+                        onChange={(action) => setAction(c.slug, action)}
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium">{c.name}</TableCell>
+                    <TableCell className="max-w-[320px] truncate text-muted-foreground">
+                      {c.one_liner}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">
+                      {c.batch}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {c.industry && <Badge variant="secondary">{c.industry}</Badge>}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">
+                      {c.status}
+                    </TableCell>
+                    <TableCell>
+                      {note ? (
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          aria-label="Toggle funding note"
+                          className="size-7 rounded-[0.85rem] text-emerald-500"
+                          onClick={() => setExpandedFunding(isOpen ? null : c.slug)}
+                        >
+                          {isOpen ? (
+                            <ChevronDown className="size-3.5" />
+                          ) : (
+                            <DollarSign className="size-3.5" />
+                          )}
+                        </Button>
+                      ) : (
+                        <span className="text-muted-foreground" title="Not researched yet — ask Claude to look this one up">
+                          <ChevronRight className="size-3.5 opacity-0" />
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {c.website && (
+                        <a
+                          href={c.website}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-muted-foreground hover:text-foreground"
+                          aria-label={`Open ${c.name} website`}
+                        >
+                          <ExternalLink className="size-3.5" />
+                        </a>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                  {isOpen && note && (
+                    <TableRow>
+                      <TableCell colSpan={8} className="bg-secondary/40 text-sm">
+                        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground/80">
+                          Funding research — {new Date(note.updatedAt).toLocaleDateString()}
+                        </p>
+                        <p className="text-foreground">{note.summary}</p>
+                        {note.source && (
+                          <a
+                            href={note.source}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-1 inline-block text-xs text-primary underline"
+                          >
+                            Source
+                          </a>
+                        )}
+                      </TableCell>
+                    </TableRow>
                   )}
-                </TableCell>
-              </TableRow>
-            ))}
+                </Fragment>
+              );
+            })}
             {pageItems.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
                   No companies match these filters.
                 </TableCell>
               </TableRow>
