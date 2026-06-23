@@ -36,7 +36,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Build YC trend tables.")
     parser.add_argument("--in", dest="infile", default="data/companies.jsonl")
     parser.add_argument("--field", default="tags",
-                        help="Category field to trend: tags | industry | subindustry")
+                        help="Category field to trend: tags | industry | subindustry "
+                             "| keywords (n-grams from descriptions)")
     parser.add_argument("--recent", type=int, default=4,
                         help="Number of most-recent batches in the recent window.")
     parser.add_argument("--baseline", type=int, default=8,
@@ -45,11 +46,33 @@ def main() -> None:
     parser.add_argument("--min-size", type=int, default=30, dest="min_size",
                         help="Exclude batches with fewer than N companies (drops "
                              "sparse/future batches). Default: 30")
+    # keyword-specific knobs (only used when --field keywords)
+    parser.add_argument("--use-description", action="store_true", dest="use_description",
+                        help="[keywords] include long_description, not just one_liner.")
+    parser.add_argument("--ngram-max", type=int, default=3, dest="ngram_max",
+                        help="[keywords] max n-gram length. Default: 3")
+    parser.add_argument("--min-doc-freq", type=int, default=8, dest="min_doc_freq",
+                        help="[keywords] drop phrases in fewer than N companies. Default: 8")
+    parser.add_argument("--min-recent-share", type=float, default=0.0,
+                        dest="min_recent_share",
+                        help="Only report movers with recent share >= this (e.g. 0.01).")
     parser.add_argument("--outdir", default="data", help="Where to write trend CSVs.")
     args = parser.parse_args()
 
     companies = load_companies(args.infile)
     print(f"Loaded {len(companies)} companies from {args.infile}.")
+
+    if args.field == "keywords":
+        from yc_mind import keywords  # noqa: E402
+        vocab = keywords.attach_keywords(
+            companies,
+            use_description=args.use_description,
+            n_range=(1, args.ngram_max),
+            min_doc_freq=args.min_doc_freq,
+        )
+        src = "one_liner + long_description" if args.use_description else "one_liner"
+        print(f"Extracted {len(vocab)} keyword phrases from {src} "
+              f"(min_doc_freq={args.min_doc_freq}).")
 
     outdir = Path(args.outdir)
     outdir.mkdir(parents=True, exist_ok=True)
@@ -61,7 +84,8 @@ def main() -> None:
     share.to_csv(share_path)
     counts.to_csv(count_path)
 
-    mv = trends.movers(share, recent=args.recent, baseline=args.baseline)
+    mv = trends.movers(share, recent=args.recent, baseline=args.baseline,
+                       min_recent_share=args.min_recent_share)
     movers_path = outdir / f"trend_movers_{args.field}.csv"
     mv.to_csv(movers_path)
 

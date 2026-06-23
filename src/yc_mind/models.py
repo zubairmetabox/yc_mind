@@ -67,6 +67,8 @@ class Company:
     tags: list[str] = field(default_factory=list)
     industries: list[str] = field(default_factory=list)
     regions: list[str] = field(default_factory=list)
+    # Populated on demand by keywords.attach_keywords(); not part of the raw hit.
+    keywords: list[str] = field(default_factory=list)
     raw: dict = field(default_factory=dict, repr=False)
 
     @classmethod

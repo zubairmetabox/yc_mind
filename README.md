@@ -41,7 +41,18 @@ python scripts/scrape_companies.py
 # 2. Build trend tables + print top movers
 python scripts/build_trends.py --field tags     --recent 4 --baseline 8 --top 15
 python scripts/build_trends.py --field industry --recent 4 --baseline 8 --top 10
+
+# 3. Problem-space THEMES from descriptions (works on recent batches; tags don't)
+python scripts/build_trends.py --field keywords --recent 4 --baseline 8 \
+    --min-recent-share 0.01 --top 15
+# add --use-description to mine long_description too (slower, broader vocab)
 ```
+
+`--field keywords` extracts n-gram phrases (1–3 words) from company one-liners
+(and optionally `long_description`), prunes rare ones (`--min-doc-freq`), and
+trends each phrase's share-of-batch just like a tag. Because descriptions are
+populated even for brand-new batches, this is the **reliable signal for what YC
+is funding right now** — and it's the input the Stage 2 idea generator will use.
 
 Outputs (in `data/`, gitignored):
 
@@ -61,6 +72,7 @@ src/yc_mind/
   models.py    # Company record + batch parsing (chronological sort key)
   scrape.py    # batch-sliced full fetch, save/load JSONL
   trends.py    # share-by-batch, counts-by-batch, movers
+  keywords.py  # n-gram theme extraction from descriptions (--field keywords)
 scripts/
   scrape_companies.py
   build_trends.py
@@ -82,8 +94,9 @@ data/          # scraped data + trend CSVs (gitignored)
 
 ## Roadmap
 
-- **Stage 1 (here):** YC directory scrape + sector/tag trend tables.
-- **Next:** problem-space keyword clustering on company descriptions (richer
-  signal than raw tags) — feeds idea generation.
-- **Stage 2:** LLM-driven (Claude) startup-idea generation from the trend data.
+- **Stage 1 (done):** YC directory scrape + sector/tag/industry trend tables.
+- **Stage 1.5 (done):** problem-space keyword/theme extraction from descriptions
+  (`--field keywords`) — richer than raw tags, works on recent batches.
+- **Stage 2 (next):** LLM-driven (Claude) startup-idea generation from the trend
+  + theme data.
 - **Later sources:** YouTube transcripts, Twitter/X, LinkedIn.
