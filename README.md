@@ -1,11 +1,11 @@
 # YC_Mind
 
-Mine Y Combinator's public company directory for **funding trends**, then (later)
+Mine Y Combinator's public company directory for **funding trends**, then
 generate startup ideas aligned with what YC is funding more of.
 
-This is the **Stage 1** codebase: scrape the full YC directory and measure
-sector/tag share batch-over-batch. Stage 2 (LLM-driven idea generation) builds on
-top of the trend data and is not in this repo yet.
+This repo holds the Python data pipeline (this README) and a Next.js
+exploration dashboard in [`web/`](web/README.md) — `cd web && pnpm dev` to
+browse the current (and any future) data without touching Python.
 
 > Planning / source-of-truth docs live in the parent `Claude Discussions/YC_Mind/`
 > folder (`00_qa_log.md`, `01_planning.md`).

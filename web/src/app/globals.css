@@ -1,0 +1,219 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ── Light ────────────────────────────────────────────────────────────────── */
+:root {
+  --background: #f6f9fc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #0f172a;
+  --primary-foreground: #f8fafc;
+  --secondary: #eef4fa;
+  --secondary-foreground: #0f172a;
+  --muted: #edf2f7;
+  --muted-foreground: #5c6b7f;
+  --accent: #dff4ff;
+  --accent-foreground: #0f172a;
+  --destructive: #c2410c;
+  --destructive-foreground: #fff7ed;
+  --border: #dbe5ef;
+  --input: #dbe5ef;
+  --ring: #38bdf8;
+  --sidebar: rgba(244, 249, 255, 0.96);
+  --sidebar-foreground: #0f172a;
+  --sidebar-primary: #0f172a;
+  --sidebar-primary-foreground: #f8fafc;
+  --sidebar-accent: #dff4ff;
+  --sidebar-accent-foreground: #0f172a;
+  --sidebar-border: #dbe5ef;
+  --sidebar-ring: #38bdf8;
+  --chart-1: #38bdf8;
+  --chart-2: #0891b2;
+  --chart-3: #6366f1;
+  --chart-4: #f59e0b;
+  --chart-5: #fb7185;
+  --radius: 0.625rem;
+  --brand-from: #0f172a;
+  --brand-to: #0891b2;
+  --app-shell-bg: radial-gradient(circle at top left, rgba(163, 230, 255, 0.6), transparent 32%),
+    radial-gradient(circle at top right, rgba(15, 23, 42, 0.08), transparent 28%),
+    linear-gradient(180deg, #f6fbff 0%, #f3f5fb 44%, #eef2f7 100%);
+  --selection-bg: #bfdbfe;
+  --selection-fg: #0f172a;
+  color-scheme: light;
+}
+
+/* ── Dark ─────────────────────────────────────────────────────────────────── */
+.dark {
+  --background: #08111f;
+  --foreground: #e6eef8;
+  --card: #0d1728;
+  --card-foreground: #e6eef8;
+  --popover: #101b2d;
+  --popover-foreground: #e6eef8;
+  --primary: #9edcff;
+  --primary-foreground: #07111e;
+  --secondary: #132136;
+  --secondary-foreground: #dbe9f7;
+  --muted: #101d31;
+  --muted-foreground: #8fa4be;
+  --accent: #16283c;
+  --accent-foreground: #e6eef8;
+  --destructive: #fb923c;
+  --destructive-foreground: #2b1300;
+  --border: #213149;
+  --input: #17263a;
+  --ring: #67e8f9;
+  --sidebar: rgba(8, 17, 31, 0.92);
+  --sidebar-foreground: #e6eef8;
+  --sidebar-primary: #9edcff;
+  --sidebar-primary-foreground: #07111e;
+  --sidebar-accent: #16283c;
+  --sidebar-accent-foreground: #e6eef8;
+  --sidebar-border: #213149;
+  --sidebar-ring: #67e8f9;
+  --chart-1: #67e8f9;
+  --chart-2: #38bdf8;
+  --chart-3: #818cf8;
+  --chart-4: #fbbf24;
+  --chart-5: #fb7185;
+  --brand-from: #38bdf8;
+  --brand-to: #22d3ee;
+  --app-shell-bg: radial-gradient(circle at top left, rgba(34, 211, 238, 0.16), transparent 30%),
+    radial-gradient(circle at top right, rgba(148, 163, 184, 0.1), transparent 28%),
+    linear-gradient(180deg, #07111e 0%, #091526 45%, #0b1626 100%);
+  --selection-bg: #164e63;
+  --selection-fg: #ecfeff;
+  color-scheme: dark;
+}
+
+/* ── Scrollbar colours ────────────────────────────────────────────────────── */
+:root {
+  --scrollbar-track: rgba(148, 163, 184, 0.12);
+  --scrollbar-thumb: rgba(15, 23, 42, 0.28);
+  --scrollbar-thumb-hover: rgba(15, 23, 42, 0.4);
+}
+.dark {
+  --scrollbar-track: rgba(148, 163, 184, 0.1);
+  --scrollbar-thumb: rgba(191, 219, 254, 0.3);
+  --scrollbar-thumb-hover: rgba(191, 219, 254, 0.45);
+}
+
+/* ── Tailwind theme bridge ────────────────────────────────────────────────── */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-brand-from: var(--brand-from);
+  --color-brand-to: var(--brand-to);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+* { border-color: var(--border); }
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+button, a, input {
+  transition-duration: 180ms;
+}
+
+::selection, *::selection, input::selection, textarea::selection {
+  background: var(--selection-bg);
+  color: var(--selection-fg);
+}
+
+/* ── Sleek scrollbar ──────────────────────────────────────────────────────── */
+.app-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+.app-scrollbar::-webkit-scrollbar { width: 10px; }
+.app-scrollbar::-webkit-scrollbar-track {
+  margin-block: 6px;
+  border-radius: 999px;
+  background: var(--scrollbar-track);
+}
+.app-scrollbar::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--scrollbar-thumb);
+  background-clip: padding-box;
+}
+.app-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+/* ── Minimal markdown prose (no typography plugin) ──────────────────────── */
+.prose-yc {
+  color: var(--foreground);
+  font-size: 0.9375rem;
+  line-height: 1.65;
+}
+.prose-yc h1 { font-size: 1.375rem; font-weight: 600; margin: 0 0 0.75rem; }
+.prose-yc h2 {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  margin: 1.75rem 0 0.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+.prose-yc h2:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+.prose-yc h3 { font-size: 0.9375rem; font-weight: 600; margin: 1.25rem 0 0.4rem; }
+.prose-yc p { margin: 0.5rem 0; color: var(--foreground); }
+.prose-yc strong { font-weight: 600; }
+.prose-yc ul, .prose-yc ol { margin: 0.5rem 0 0.75rem; padding-left: 1.25rem; }
+.prose-yc li { margin: 0.3rem 0; }
+.prose-yc li::marker { color: var(--muted-foreground); }
+.prose-yc hr { border-color: var(--border); margin: 1.5rem 0; }
+.prose-yc code {
+  background: var(--secondary);
+  border-radius: 0.4rem;
+  padding: 0.1rem 0.35rem;
+  font-family: var(--font-geist-mono);
+  font-size: 0.85em;
+}
+.prose-yc a { color: var(--primary); text-decoration: underline; text-underline-offset: 2px; }
