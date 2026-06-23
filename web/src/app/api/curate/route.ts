@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurationState, setCuration, type CurationAction, type CurationType } from "@/lib/curation";
 
 export async function GET() {
-  return NextResponse.json(getCurationState());
+  return NextResponse.json(await getCurationState());
 }
 
 export async function POST(req: Request) {
@@ -20,6 +20,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   }
 
-  const state = setCuration(type, id, action);
-  return NextResponse.json(state);
+  try {
+    const state = await setCuration(type, id, action);
+    return NextResponse.json(state);
+  } catch {
+    // Most likely cause: deployed on Vercel without Blob storage enabled yet
+    // (no durable filesystem to fall back to). See web/README.md.
+    return NextResponse.json(
+      {
+        error:
+          "Ratings can't be saved yet — Blob storage isn't connected to this deployment. " +
+          "Enable it in the Vercel project's Storage tab, then try again.",
+      },
+      { status: 503 },
+    );
+  }
 }

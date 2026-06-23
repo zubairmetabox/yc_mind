@@ -15,7 +15,7 @@ export function LikeDislike({
   size?: "sm" | "icon";
 }) {
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1.5">
       <Button
         type="button"
         size="icon"
@@ -23,12 +23,12 @@ export function LikeDislike({
         aria-label="Like"
         onClick={() => onChange(value === "like" ? "clear" : "like")}
         className={cn(
-          size === "sm" ? "size-7" : "size-8",
+          size === "sm" ? "size-8" : "size-10",
           "rounded-[0.85rem]",
           value === "like" && "bg-emerald-500/15 text-emerald-500",
         )}
       >
-        <ThumbsUp className={size === "sm" ? "size-3.5" : "size-4"} />
+        <ThumbsUp className={size === "sm" ? "size-4" : "size-5"} />
       </Button>
       <Button
         type="button"
@@ -37,12 +37,12 @@ export function LikeDislike({
         aria-label="Dislike"
         onClick={() => onChange(value === "dislike" ? "clear" : "dislike")}
         className={cn(
-          size === "sm" ? "size-7" : "size-8",
+          size === "sm" ? "size-8" : "size-10",
           "rounded-[0.85rem]",
           value === "dislike" && "bg-rose-500/15 text-rose-500",
         )}
       >
-        <ThumbsDown className={size === "sm" ? "size-3.5" : "size-4"} />
+        <ThumbsDown className={size === "sm" ? "size-4" : "size-5"} />
       </Button>
     </div>
   );

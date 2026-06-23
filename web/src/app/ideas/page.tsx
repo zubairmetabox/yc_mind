@@ -5,10 +5,10 @@ import { IdeasBoard } from "@/components/ideas-board";
 
 export const dynamic = "force-dynamic";
 
-export default function IdeasPage() {
+export default async function IdeasPage() {
   const markdown = getIdeasMarkdown();
   const parsed = parseIdeasMarkdown(markdown);
-  const { ideas: initialCuration } = getCurationState();
+  const { ideas: initialCuration } = await getCurationState();
 
   return (
     <div className="flex flex-col gap-6">

@@ -4,7 +4,7 @@ import { getCurationState } from "@/lib/curation";
 
 export const dynamic = "force-dynamic";
 
-export default function CompaniesPage() {
+export default async function CompaniesPage() {
   const companies = getCompanies()
     .slice()
     .reverse() // newest batches first
@@ -18,7 +18,7 @@ export default function CompaniesPage() {
       website: c.website,
       tags: c.tags,
     }));
-  const { companies: initialCuration, fundingNotes } = getCurationState();
+  const { companies: initialCuration, fundingNotes } = await getCurationState();
 
   return (
     <div className="flex flex-col gap-6">

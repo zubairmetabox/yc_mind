@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   Search,
   ExternalLink,
@@ -10,6 +10,7 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
+  Loader2,
 } from "lucide-react";
 import {
   Select,
@@ -30,6 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useCuration } from "@/lib/use-curation";
+import { useInfiniteScroll } from "@/lib/use-infinite-scroll";
 import type { CurationAction, FundingNote } from "@/lib/curation";
 import { batchSortKey } from "@/lib/batch-sort";
 import { cn } from "@/lib/utils";
@@ -90,6 +92,57 @@ function SortableHead({
   );
 }
 
+function FundingButton({
+  note,
+  isOpen,
+  onToggle,
+}: {
+  note?: FundingNote;
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
+  if (!note) {
+    return (
+      <span title="Not researched yet — ask Claude to look this one up">
+        <ChevronRight className="size-3.5 opacity-0" />
+      </span>
+    );
+  }
+  return (
+    <Button
+      type="button"
+      size="icon"
+      variant="ghost"
+      aria-label="Toggle funding note"
+      className="size-7 rounded-[0.85rem] text-emerald-500"
+      onClick={onToggle}
+    >
+      {isOpen ? <ChevronDown className="size-3.5" /> : <DollarSign className="size-3.5" />}
+    </Button>
+  );
+}
+
+function FundingDetail({ note }: { note: FundingNote }) {
+  return (
+    <div className="text-sm">
+      <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground/80">
+        Funding research — {new Date(note.updatedAt).toLocaleDateString()}
+      </p>
+      <p className="text-foreground">{note.summary}</p>
+      {note.source && (
+        <a
+          href={note.source}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-1 inline-block text-xs text-primary underline"
+        >
+          Source
+        </a>
+      )}
+    </div>
+  );
+}
+
 export function CompaniesExplorer({
   companies,
   initialCuration,
@@ -106,7 +159,6 @@ export function CompaniesExplorer({
   const [curationFilter, setCurationFilter] = useState<CurationFilter>("all");
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [page, setPage] = useState(0);
   const [expandedFunding, setExpandedFunding] = useState<string | null>(null);
   const { map: curation, setAction } = useCuration("company", initialCuration);
 
@@ -157,19 +209,17 @@ export function CompaniesExplorer({
     return result;
   }, [companies, query, industry, batch, status, curationFilter, curation, sortKey, sortDir]);
 
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(page, pageCount - 1);
-  const pageItems = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+  const { visibleCount, sentinelRef, reset, hasMore } = useInfiniteScroll(filtered.length, PAGE_SIZE);
+  const visibleItems = filtered.slice(0, visibleCount);
+
+  // Re-show only the first page whenever the result set changes shape.
+  useEffect(() => {
+    reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, industry, batch, status, curationFilter, sortKey, sortDir]);
 
   const likedCount = Object.values(curation).filter((v) => v === "like").length;
   const dislikedCount = Object.values(curation).filter((v) => v === "dislike").length;
-
-  function updateFilter<T>(setter: (v: T) => void) {
-    return (v: T) => {
-      setter(v);
-      setPage(0);
-    };
-  }
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -178,7 +228,6 @@ export function CompaniesExplorer({
       setSortKey(key);
       setSortDir("asc");
     }
-    setPage(0);
   }
 
   return (
@@ -188,12 +237,12 @@ export function CompaniesExplorer({
           <Search className="size-4 text-muted-foreground" />
           <input
             value={query}
-            onChange={(e) => updateFilter(setQuery)(e.target.value)}
+            onChange={(e) => setQuery(e.target.value)}
             placeholder="Search name, one-liner, or tag…"
             className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
           />
         </div>
-        <Select value={industry} onValueChange={updateFilter(setIndustry)}>
+        <Select value={industry} onValueChange={setIndustry}>
           <SelectTrigger className="w-full rounded-[1.25rem] sm:w-[200px]">
             <SelectValue placeholder="Industry" />
           </SelectTrigger>
@@ -206,7 +255,7 @@ export function CompaniesExplorer({
             ))}
           </SelectContent>
         </Select>
-        <Select value={batch} onValueChange={updateFilter(setBatch)}>
+        <Select value={batch} onValueChange={setBatch}>
           <SelectTrigger className="w-full rounded-[1.25rem] sm:w-[160px]">
             <SelectValue placeholder="Batch" />
           </SelectTrigger>
@@ -219,7 +268,7 @@ export function CompaniesExplorer({
             ))}
           </SelectContent>
         </Select>
-        <Select value={status} onValueChange={updateFilter(setStatus)}>
+        <Select value={status} onValueChange={setStatus}>
           <SelectTrigger className="w-full rounded-[1.25rem] sm:w-[150px]">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
@@ -249,7 +298,7 @@ export function CompaniesExplorer({
             size="sm"
             variant={curationFilter === opt.value ? "default" : "outline"}
             className="rounded-[1.25rem]"
-            onClick={() => updateFilter(setCurationFilter)(opt.value)}
+            onClick={() => setCurationFilter(opt.value)}
           >
             {opt.label}
           </Button>
@@ -259,9 +308,72 @@ export function CompaniesExplorer({
         </p>
       </div>
 
-      <div className="app-scrollbar overflow-y-auto rounded-[1.25rem] border border-border/70">
+      {/* Mobile: card list */}
+      <div className="flex flex-col gap-3 sm:hidden">
+        {visibleItems.map((c) => {
+          const note = fundingNotes[c.slug];
+          const isOpen = expandedFunding === c.slug;
+          return (
+            <div
+              key={c.slug}
+              className="rounded-[1.5rem] border border-border/70 bg-card p-4 shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-medium text-foreground">{c.name}</p>
+                  <p className="mt-0.5 text-sm text-muted-foreground">{c.one_liner}</p>
+                </div>
+                <LikeDislike
+                  value={curation[c.slug]}
+                  onChange={(action) => setAction(c.slug, action)}
+                />
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span>{c.batch}</span>
+                {c.industry && <Badge variant="secondary">{c.industry}</Badge>}
+                <span>{c.status}</span>
+                {c.website && (
+                  <a
+                    href={c.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-auto text-muted-foreground hover:text-foreground"
+                    aria-label={`Open ${c.name} website`}
+                  >
+                    <ExternalLink className="size-3.5" />
+                  </a>
+                )}
+              </div>
+              {note && (
+                <button
+                  type="button"
+                  onClick={() => setExpandedFunding(isOpen ? null : c.slug)}
+                  className="mt-3 flex items-center gap-1 text-xs font-medium text-emerald-500"
+                >
+                  <DollarSign className="size-3.5" />
+                  Funding research
+                  {isOpen ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+                </button>
+              )}
+              {isOpen && note && (
+                <div className="mt-2 rounded-[1rem] bg-secondary/40 p-3">
+                  <FundingDetail note={note} />
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {visibleItems.length === 0 && (
+          <p className="py-10 text-center text-sm text-muted-foreground">
+            No companies match these filters.
+          </p>
+        )}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="hidden rounded-[1.25rem] border border-border/70 sm:block">
         <Table>
-          <TableHeader className="sticky top-0 bg-card">
+          <TableHeader className="sticky top-0 z-10 bg-card">
             <TableRow>
               <TableHead className="w-20">Rate</TableHead>
               <SortableHead label="Name" sortKey="name" active={sortKey} dir={sortDir} onSort={handleSort} />
@@ -274,7 +386,7 @@ export function CompaniesExplorer({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {pageItems.map((c) => {
+            {visibleItems.map((c) => {
               const note = fundingNotes[c.slug];
               const isOpen = expandedFunding === c.slug;
               return (
@@ -300,26 +412,11 @@ export function CompaniesExplorer({
                       {c.status}
                     </TableCell>
                     <TableCell>
-                      {note ? (
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          aria-label="Toggle funding note"
-                          className="size-7 rounded-[0.85rem] text-emerald-500"
-                          onClick={() => setExpandedFunding(isOpen ? null : c.slug)}
-                        >
-                          {isOpen ? (
-                            <ChevronDown className="size-3.5" />
-                          ) : (
-                            <DollarSign className="size-3.5" />
-                          )}
-                        </Button>
-                      ) : (
-                        <span className="text-muted-foreground" title="Not researched yet — ask Claude to look this one up">
-                          <ChevronRight className="size-3.5 opacity-0" />
-                        </span>
-                      )}
+                      <FundingButton
+                        note={note}
+                        isOpen={isOpen}
+                        onToggle={() => setExpandedFunding(isOpen ? null : c.slug)}
+                      />
                     </TableCell>
                     <TableCell>
                       {c.website && (
@@ -338,27 +435,14 @@ export function CompaniesExplorer({
                   {isOpen && note && (
                     <TableRow>
                       <TableCell colSpan={8} className="bg-secondary/40 text-sm">
-                        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground/80">
-                          Funding research — {new Date(note.updatedAt).toLocaleDateString()}
-                        </p>
-                        <p className="text-foreground">{note.summary}</p>
-                        {note.source && (
-                          <a
-                            href={note.source}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="mt-1 inline-block text-xs text-primary underline"
-                          >
-                            Source
-                          </a>
-                        )}
+                        <FundingDetail note={note} />
                       </TableCell>
                     </TableRow>
                   )}
                 </Fragment>
               );
             })}
-            {pageItems.length === 0 && (
+            {visibleItems.length === 0 && (
               <TableRow>
                 <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
                   No companies match these filters.
@@ -369,30 +453,16 @@ export function CompaniesExplorer({
         </Table>
       </div>
 
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <span>
-          Page {safePage + 1} of {pageCount}
-        </span>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="rounded-[1.25rem]"
-            disabled={safePage === 0}
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
-          >
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="rounded-[1.25rem]"
-            disabled={safePage >= pageCount - 1}
-            onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
-          >
-            Next
-          </Button>
-        </div>
+      {/* Infinite-scroll sentinel — grows visibleCount when it scrolls into view */}
+      <div ref={sentinelRef} className="flex items-center justify-center py-4 text-xs text-muted-foreground">
+        {hasMore ? (
+          <span className="flex items-center gap-2">
+            <Loader2 className="size-3.5 animate-spin" />
+            Loading more…
+          </span>
+        ) : visibleItems.length > 0 ? (
+          <span>All {filtered.length.toLocaleString()} companies shown</span>
+        ) : null}
       </div>
     </div>
   );

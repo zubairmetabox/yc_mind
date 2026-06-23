@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import NextTopLoader from "nextjs-toploader";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppShell } from "@/components/app-shell";
@@ -45,6 +46,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <TooltipProvider>
             <AppShell>{children}</AppShell>
+            <Toaster position="top-center" richColors />
           </TooltipProvider>
         </ThemeProvider>
       </body>

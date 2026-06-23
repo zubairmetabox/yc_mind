@@ -22,7 +22,7 @@ export function FieldSelect({ value }: { value: TrendField }) {
 
   return (
     <Select value={value} onValueChange={(next) => router.push(`/trends?field=${next}`)}>
-      <SelectTrigger className="w-[240px] rounded-[1.25rem]">
+      <SelectTrigger className="w-full rounded-[1.25rem] sm:w-[240px]">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

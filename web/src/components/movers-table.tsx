@@ -31,8 +31,8 @@ export function MoversTable({ movers }: { movers: Mover[] }) {
           className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
         />
       </div>
-      <div className="app-scrollbar max-h-[480px] overflow-y-auto rounded-[1.25rem] border border-border/70">
-        <Table>
+      <div className="app-scrollbar max-h-[480px] overflow-x-auto overflow-y-auto rounded-[1.25rem] border border-border/70">
+        <Table className="min-w-[480px]">
           <TableHeader className="sticky top-0 bg-card">
             <TableRow>
               <TableHead className="w-6" />

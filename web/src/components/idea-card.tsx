@@ -18,10 +18,12 @@ export function IdeaCard({
   return (
     <div className="rounded-[1.75rem] border border-border/80 bg-card p-5 shadow-sm sm:p-6">
       <div className="mb-2 flex items-start justify-between gap-3">
-        <h2 className="text-base font-semibold text-foreground">
+        <h2 className="min-w-0 text-base font-semibold text-foreground">
           {idea.number}. {idea.title}
         </h2>
-        <LikeDislike value={value} onChange={onChange} size="icon" />
+        <div className="shrink-0">
+          <LikeDislike value={value} onChange={onChange} size="icon" />
+        </div>
       </div>
       <article className="prose-yc">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{idea.body}</ReactMarkdown>
