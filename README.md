@@ -46,6 +46,11 @@ python scripts/build_trends.py --field industry --recent 4 --baseline 8 --top 10
 python scripts/build_trends.py --field keywords --recent 4 --baseline 8 \
     --min-recent-share 0.01 --top 15
 # add --use-description to mine long_description too (slower, broader vocab)
+
+# 4. Stage 2: build the grounded idea-generation prompt (no API key needed)
+python scripts/build_idea_context.py --recent 4 --baseline 8 --top-n 12 --num-ideas 8
+# writes data/idea_prompt.md — paste into any Claude chat, or have Claude Code
+# read it directly. See data/ideas.md for the first generated batch.
 ```
 
 `--field keywords` extracts n-gram phrases (1–3 words) from company one-liners
@@ -54,29 +59,37 @@ trends each phrase's share-of-batch just like a tag. Because descriptions are
 populated even for brand-new batches, this is the **reliable signal for what YC
 is funding right now** — and it's the input the Stage 2 idea generator will use.
 
-Outputs (in `data/`, gitignored):
+Outputs (in `data/`):
 
-| File | Contents |
-|---|---|
-| `companies.jsonl` | Full raw Algolia hit per company (newline-delimited JSON) |
-| `companies.csv` | Flattened scalar + list fields, one row per company |
-| `trend_share_<field>.csv` | Batch × category, cells = share of batch (0–1) |
-| `trend_counts_<field>.csv` | Batch × category, absolute counts |
-| `trend_movers_<field>.csv` | baseline_share, recent_share, change per category |
+| File | Contents | Tracked in git? |
+|---|---|---|
+| `companies.jsonl` | Full raw Algolia hit per company (newline-delimited JSON) | No (regenerable) |
+| `companies.csv` | Flattened scalar + list fields, one row per company | No (regenerable) |
+| `trend_share_<field>.csv` | Batch × category, cells = share of batch (0–1) | No (regenerable) |
+| `trend_counts_<field>.csv` | Batch × category, absolute counts | No (regenerable) |
+| `trend_movers_<field>.csv` | baseline_share, recent_share, change per category | No (regenerable) |
+| `idea_prompt.md` | Stage 2 grounded prompt (rising/falling themes + example companies) | **Yes** |
+| `ideas.md` | Generated startup ideas from the prompt above | **Yes** |
+
+The last two are tracked despite being in `data/` because they're not
+deterministically regenerable — the prompt content depends on when it was
+built, and the ideas are LLM output, not a deterministic scrape.
 
 ## Layout
 
 ```
 src/yc_mind/
-  algolia.py   # runtime credential scrape + Algolia query client
-  models.py    # Company record + batch parsing (chronological sort key)
-  scrape.py    # batch-sliced full fetch, save/load JSONL
-  trends.py    # share-by-batch, counts-by-batch, movers
-  keywords.py  # n-gram theme extraction from descriptions (--field keywords)
+  algolia.py    # runtime credential scrape + Algolia query client
+  models.py     # Company record + batch parsing (chronological sort key)
+  scrape.py     # batch-sliced full fetch, save/load JSONL
+  trends.py     # share-by-batch, counts-by-batch, movers
+  keywords.py   # n-gram theme extraction from descriptions (--field keywords)
+  idea_gen.py   # Stage 2: grounded context pack + prompt template
 scripts/
   scrape_companies.py
   build_trends.py
-data/          # scraped data + trend CSVs (gitignored)
+  build_idea_context.py   # writes data/idea_prompt.md
+data/          # scraped data + trend CSVs (gitignored, except idea_prompt.md / ideas.md)
 ```
 
 ## Data caveats (important)
@@ -97,6 +110,11 @@ data/          # scraped data + trend CSVs (gitignored)
 - **Stage 1 (done):** YC directory scrape + sector/tag/industry trend tables.
 - **Stage 1.5 (done):** problem-space keyword/theme extraction from descriptions
   (`--field keywords`) — richer than raw tags, works on recent batches.
-- **Stage 2 (next):** LLM-driven (Claude) startup-idea generation from the trend
-  + theme data.
+- **Stage 2 (done, v1):** Grounded prompt-building (`build_idea_context.py`)
+  feeding idea generation by a Claude session — no API key, uses the Claude
+  Code subscription rather than the API. First batch of 8 ideas in `data/ideas.md`.
 - **Later sources:** YouTube transcripts, Twitter/X, LinkedIn.
+- **Possible refinements:** semantic clustering of keyword n-grams (current
+  approach counts e.g. "ai agents" / "agentic" / "autonomous" as separate
+  phrases even though they're one theme); scheduled re-runs to track theme
+  drift over time instead of a single snapshot.
