@@ -1,7 +1,16 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
-import { Search, ExternalLink, DollarSign, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  Search,
+  ExternalLink,
+  DollarSign,
+  ChevronDown,
+  ChevronRight,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+} from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -22,6 +31,8 @@ import {
 } from "@/components/ui/table";
 import { useCuration } from "@/lib/use-curation";
 import type { CurationAction, FundingNote } from "@/lib/curation";
+import { batchSortKey } from "@/lib/batch-sort";
+import { cn } from "@/lib/utils";
 
 export type SlimCompany = {
   name: string;
@@ -37,6 +48,47 @@ export type SlimCompany = {
 const PAGE_SIZE = 50;
 const ALL = "__all__";
 type CurationFilter = "all" | "liked" | "disliked" | "unrated";
+type SortKey = "name" | "batch" | "industry" | "status";
+type SortDir = "asc" | "desc";
+
+const SORT_GETTERS: Record<SortKey, (c: SlimCompany) => number | string> = {
+  name: (c) => c.name.toLowerCase(),
+  batch: (c) => batchSortKey(c.batch),
+  industry: (c) => c.industry.toLowerCase(),
+  status: (c) => c.status.toLowerCase(),
+};
+
+function SortableHead({
+  label,
+  sortKey,
+  active,
+  dir,
+  onSort,
+}: {
+  label: string;
+  sortKey: SortKey;
+  active: SortKey | null;
+  dir: SortDir;
+  onSort: (key: SortKey) => void;
+}) {
+  const isActive = active === sortKey;
+  const Icon = isActive ? (dir === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
+  return (
+    <TableHead>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={cn(
+          "flex items-center gap-1 text-left font-medium transition-colors hover:text-foreground",
+          isActive ? "text-foreground" : "text-muted-foreground",
+        )}
+      >
+        {label}
+        <Icon className="size-3" />
+      </button>
+    </TableHead>
+  );
+}
 
 export function CompaniesExplorer({
   companies,
@@ -50,7 +102,10 @@ export function CompaniesExplorer({
   const [query, setQuery] = useState("");
   const [industry, setIndustry] = useState(ALL);
   const [batch, setBatch] = useState(ALL);
+  const [status, setStatus] = useState(ALL);
   const [curationFilter, setCurationFilter] = useState<CurationFilter>("all");
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [page, setPage] = useState(0);
   const [expandedFunding, setExpandedFunding] = useState<string | null>(null);
   const { map: curation, setAction } = useCuration("company", initialCuration);
@@ -60,15 +115,23 @@ export function CompaniesExplorer({
     [companies],
   );
   const batches = useMemo(
-    () => Array.from(new Set(companies.map((c) => c.batch).filter(Boolean))),
+    () =>
+      Array.from(new Set(companies.map((c) => c.batch).filter(Boolean))).sort(
+        (a, b) => batchSortKey(a) - batchSortKey(b),
+      ),
+    [companies],
+  );
+  const statuses = useMemo(
+    () => Array.from(new Set(companies.map((c) => c.status).filter(Boolean))).sort(),
     [companies],
   );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return companies.filter((c) => {
+    const result = companies.filter((c) => {
       if (industry !== ALL && c.industry !== industry) return false;
       if (batch !== ALL && c.batch !== batch) return false;
+      if (status !== ALL && c.status !== status) return false;
       const rating = curation[c.slug];
       if (curationFilter === "liked" && rating !== "like") return false;
       if (curationFilter === "disliked" && rating !== "dislike") return false;
@@ -80,7 +143,19 @@ export function CompaniesExplorer({
         c.tags.some((t) => t.toLowerCase().includes(q))
       );
     });
-  }, [companies, query, industry, batch, curationFilter, curation]);
+
+    if (sortKey) {
+      const getter = SORT_GETTERS[sortKey];
+      result.sort((a, b) => {
+        const av = getter(a);
+        const bv = getter(b);
+        const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv));
+        return sortDir === "asc" ? cmp : -cmp;
+      });
+    }
+
+    return result;
+  }, [companies, query, industry, batch, status, curationFilter, curation, sortKey, sortDir]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
@@ -94,6 +169,16 @@ export function CompaniesExplorer({
       setter(v);
       setPage(0);
     };
+  }
+
+  function handleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+    setPage(0);
   }
 
   return (
@@ -134,6 +219,19 @@ export function CompaniesExplorer({
             ))}
           </SelectContent>
         </Select>
+        <Select value={status} onValueChange={updateFilter(setStatus)}>
+          <SelectTrigger className="w-full rounded-[1.25rem] sm:w-[150px]">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>All statuses</SelectItem>
+            {statuses.map((s) => (
+              <SelectItem key={s} value={s}>
+                {s}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -166,11 +264,11 @@ export function CompaniesExplorer({
           <TableHeader className="sticky top-0 bg-card">
             <TableRow>
               <TableHead className="w-20">Rate</TableHead>
-              <TableHead>Name</TableHead>
+              <SortableHead label="Name" sortKey="name" active={sortKey} dir={sortDir} onSort={handleSort} />
               <TableHead>One-liner</TableHead>
-              <TableHead>Batch</TableHead>
-              <TableHead>Industry</TableHead>
-              <TableHead>Status</TableHead>
+              <SortableHead label="Batch" sortKey="batch" active={sortKey} dir={sortDir} onSort={handleSort} />
+              <SortableHead label="Industry" sortKey="industry" active={sortKey} dir={sortDir} onSort={handleSort} />
+              <SortableHead label="Status" sortKey="status" active={sortKey} dir={sortDir} onSort={handleSort} />
               <TableHead className="w-10">Funding</TableHead>
               <TableHead className="w-10" />
             </TableRow>
