@@ -1,5 +1,6 @@
 import { CompaniesExplorer } from "@/components/companies-explorer";
 import { getCompanies } from "@/lib/data";
+import { getCurationState } from "@/lib/curation";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ export default function CompaniesPage() {
       website: c.website,
       tags: c.tags,
     }));
+  const { companies: initialCuration } = getCurationState();
 
   return (
     <div className="flex flex-col gap-6">
@@ -29,10 +31,10 @@ export default function CompaniesPage() {
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Full public directory — search by name, one-liner, or tag, and filter by
-          industry or batch.
+          industry or batch. Rate companies to build a curated list.
         </p>
       </div>
-      <CompaniesExplorer companies={companies} />
+      <CompaniesExplorer companies={companies} initialCuration={initialCuration} />
     </div>
   );
 }

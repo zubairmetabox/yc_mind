@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { LikeDislike } from "@/components/like-dislike";
 import {
   Table,
   TableBody,
@@ -19,6 +20,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useCuration } from "@/lib/use-curation";
+import type { CurationAction } from "@/lib/curation";
 
 export type SlimCompany = {
   name: string;
@@ -33,12 +36,21 @@ export type SlimCompany = {
 
 const PAGE_SIZE = 50;
 const ALL = "__all__";
+type CurationFilter = "all" | "liked" | "disliked" | "unrated";
 
-export function CompaniesExplorer({ companies }: { companies: SlimCompany[] }) {
+export function CompaniesExplorer({
+  companies,
+  initialCuration,
+}: {
+  companies: SlimCompany[];
+  initialCuration: Record<string, CurationAction>;
+}) {
   const [query, setQuery] = useState("");
   const [industry, setIndustry] = useState(ALL);
   const [batch, setBatch] = useState(ALL);
+  const [curationFilter, setCurationFilter] = useState<CurationFilter>("all");
   const [page, setPage] = useState(0);
+  const { map: curation, setAction } = useCuration("company", initialCuration);
 
   const industries = useMemo(
     () => Array.from(new Set(companies.map((c) => c.industry).filter(Boolean))).sort(),
@@ -54,6 +66,10 @@ export function CompaniesExplorer({ companies }: { companies: SlimCompany[] }) {
     return companies.filter((c) => {
       if (industry !== ALL && c.industry !== industry) return false;
       if (batch !== ALL && c.batch !== batch) return false;
+      const rating = curation[c.slug];
+      if (curationFilter === "liked" && rating !== "like") return false;
+      if (curationFilter === "disliked" && rating !== "dislike") return false;
+      if (curationFilter === "unrated" && rating) return false;
       if (!q) return true;
       return (
         c.name.toLowerCase().includes(q) ||
@@ -61,14 +77,17 @@ export function CompaniesExplorer({ companies }: { companies: SlimCompany[] }) {
         c.tags.some((t) => t.toLowerCase().includes(q))
       );
     });
-  }, [companies, query, industry, batch]);
+  }, [companies, query, industry, batch, curationFilter, curation]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
   const pageItems = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
 
-  function updateFilter(setter: (v: string) => void) {
-    return (v: string) => {
+  const likedCount = Object.values(curation).filter((v) => v === "like").length;
+  const dislikedCount = Object.values(curation).filter((v) => v === "dislike").length;
+
+  function updateFilter<T>(setter: (v: T) => void) {
+    return (v: T) => {
       setter(v);
       setPage(0);
     };
@@ -114,14 +133,36 @@ export function CompaniesExplorer({ companies }: { companies: SlimCompany[] }) {
         </Select>
       </div>
 
-      <p className="text-xs text-muted-foreground">
-        {filtered.length.toLocaleString()} companies match
-      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        {(
+          [
+            { value: "all", label: "All" },
+            { value: "liked", label: `Liked (${likedCount})` },
+            { value: "disliked", label: `Disliked (${dislikedCount})` },
+            { value: "unrated", label: "Unrated" },
+          ] as { value: CurationFilter; label: string }[]
+        ).map((opt) => (
+          <Button
+            key={opt.value}
+            type="button"
+            size="sm"
+            variant={curationFilter === opt.value ? "default" : "outline"}
+            className="rounded-[1.25rem]"
+            onClick={() => updateFilter(setCurationFilter)(opt.value)}
+          >
+            {opt.label}
+          </Button>
+        ))}
+        <p className="ml-auto text-xs text-muted-foreground">
+          {filtered.length.toLocaleString()} companies match
+        </p>
+      </div>
 
       <div className="app-scrollbar overflow-y-auto rounded-[1.25rem] border border-border/70">
         <Table>
           <TableHeader className="sticky top-0 bg-card">
             <TableRow>
+              <TableHead className="w-20">Rate</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>One-liner</TableHead>
               <TableHead>Batch</TableHead>
@@ -133,6 +174,12 @@ export function CompaniesExplorer({ companies }: { companies: SlimCompany[] }) {
           <TableBody>
             {pageItems.map((c) => (
               <TableRow key={c.slug}>
+                <TableCell>
+                  <LikeDislike
+                    value={curation[c.slug]}
+                    onChange={(action) => setAction(c.slug, action)}
+                  />
+                </TableCell>
                 <TableCell className="font-medium">{c.name}</TableCell>
                 <TableCell className="max-w-[320px] truncate text-muted-foreground">
                   {c.one_liner}
@@ -163,7 +210,7 @@ export function CompaniesExplorer({ companies }: { companies: SlimCompany[] }) {
             ))}
             {pageItems.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
                   No companies match these filters.
                 </TableCell>
               </TableRow>
