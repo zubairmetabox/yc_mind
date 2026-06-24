@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, TrendingUp, Building2, Lightbulb } from "lucide-react";
+import { LayoutDashboard, TrendingUp, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Ideas page is hidden — generated startup ideas aren't being shown for now.
+// See src/app/ideas/page.tsx (redirects to /) if this needs reverting.
 const NAV_ITEMS = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
   { href: "/trends", label: "Trends", icon: TrendingUp },
   { href: "/companies", label: "Companies", icon: Building2 },
-  { href: "/ideas", label: "Ideas", icon: Lightbulb },
 ] as const;
 
 export function NavLinks() {

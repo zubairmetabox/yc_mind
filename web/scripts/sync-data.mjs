@@ -14,7 +14,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const SRC = join(__dirname, "..", "..", "data");
 const DEST = join(__dirname, "..", "data");
 
-const PATTERNS = [/^companies\.csv$/, /^trend_(share|counts|movers)_.+\.csv$/, /^ideas\.md$/];
+const PATTERNS = [
+  /^companies\.csv$/,
+  /^trend_(share|counts|movers)_.+\.csv$/,
+  /^ideas\.md$/,
+  /^scraped_at\.json$/,
+];
 
 mkdirSync(DEST, { recursive: true });
 

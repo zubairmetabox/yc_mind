@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Make `src/` importable when run as a plain script.
@@ -21,6 +23,17 @@ from yc_mind.scrape import fetch_all_companies, load_companies, save_companies  
 
 def _progress(batch: str, i: int, total: int) -> None:
     print(f"  [{i:>2}/{total}] {batch}", flush=True)
+
+
+def write_scraped_at(path: Path) -> Path:
+    """Record the real scrape time as data, not filesystem metadata — file
+    mtimes aren't reliable once bundled into a Vercel deployment artifact."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"scraped_at": datetime.now(timezone.utc).isoformat()}) + "\n",
+        encoding="utf-8",
+    )
+    return path
 
 
 def write_csv(companies, path: Path) -> Path:
@@ -59,8 +72,10 @@ def main() -> None:
 
     jsonl_path = save_companies(companies, args.out)
     csv_path = write_csv(companies, Path(args.csv))
+    scraped_at_path = write_scraped_at(Path(args.out).parent / "scraped_at.json")
     print(f"Wrote {jsonl_path}")
     print(f"Wrote {csv_path}")
+    print(f"Wrote {scraped_at_path}")
 
 
 if __name__ == "__main__":

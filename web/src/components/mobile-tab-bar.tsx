@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, TrendingUp, Building2, Lightbulb } from "lucide-react";
+import { LayoutDashboard, TrendingUp, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Ideas tab hidden — see nav-links.tsx for the matching desktop change.
 const NAV_ITEMS = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
   { href: "/trends", label: "Trends", icon: TrendingUp },
   { href: "/companies", label: "Companies", icon: Building2 },
-  { href: "/ideas", label: "Ideas", icon: Lightbulb },
 ] as const;
 
 /** Bottom tab bar — the only nav on mobile (sidebar is desktop-only). */
@@ -18,7 +18,7 @@ export function MobileTabBar() {
 
   return (
     <nav
-      className="grid grid-cols-4 border-t border-border/70 bg-background lg:hidden"
+      className="grid grid-cols-3 border-t border-border/70 bg-background lg:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       {NAV_ITEMS.map((item) => {

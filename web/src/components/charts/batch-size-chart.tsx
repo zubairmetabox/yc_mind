@@ -18,8 +18,12 @@ export function BatchSizeChart({ data }: { data: BatchSize[] }) {
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
         <XAxis
           dataKey="batch"
-          tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
-          interval={Math.max(0, Math.floor(data.length / 12))}
+          tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+          interval="preserveStartEnd"
+          minTickGap={24}
+          angle={-45}
+          textAnchor="end"
+          height={50}
           tickLine={false}
           axisLine={{ stroke: "var(--border)" }}
         />

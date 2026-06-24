@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { StatCard } from "@/components/stat-card";
 import { BatchSizeChart } from "@/components/charts/batch-size-chart";
-import { Button } from "@/components/ui/button";
 import { getBatchSizes, getDataFreshness, getMovers } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
@@ -60,21 +59,6 @@ export default function OverviewPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <MoversPreview title="Rising themes" icon="up" items={rising} />
         <MoversPreview title="Falling themes" icon="down" items={falling} />
-      </div>
-
-      <div className="rounded-[1.75rem] border border-border/80 bg-card p-5 shadow-sm">
-        <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
-          <div>
-            <h2 className="text-sm font-semibold text-foreground">Generated startup ideas</h2>
-            <p className="text-sm text-muted-foreground">
-              LLM-generated, grounded in the theme data above — checked against real
-              example companies to avoid duplicates.
-            </p>
-          </div>
-          <Button asChild className="rounded-[1.25rem]">
-            <Link href="/ideas">View ideas</Link>
-          </Button>
-        </div>
       </div>
     </div>
   );

@@ -150,10 +150,17 @@ export function getIdeasMarkdown(): string {
 }
 
 export function getDataFreshness(): { companiesUpdatedAt: string | null; totalCompanies: number } {
-  // companies.csv (not .jsonl) since only the .csv is bundled for deployment.
-  const filePath = path.join(DATA_DIR, "companies.csv");
-  if (!fs.existsSync(filePath)) return { companiesUpdatedAt: null, totalCompanies: 0 };
-  const stat = fs.statSync(filePath);
+  // Read the real scrape time from data, not the file's filesystem mtime —
+  // mtime isn't reliable once a file is bundled into a Vercel deployment
+  // artifact (saw it report a nonsense fixed date in production). See
+  // scripts/scrape_companies.py's write_scraped_at().
+  const filePath = path.join(DATA_DIR, "scraped_at.json");
   const totalCompanies = getCompanies().length;
-  return { companiesUpdatedAt: stat.mtime.toISOString(), totalCompanies };
+  if (!fs.existsSync(filePath)) return { companiesUpdatedAt: null, totalCompanies };
+  try {
+    const { scraped_at } = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+    return { companiesUpdatedAt: scraped_at ?? null, totalCompanies };
+  } catch {
+    return { companiesUpdatedAt: null, totalCompanies };
+  }
 }
