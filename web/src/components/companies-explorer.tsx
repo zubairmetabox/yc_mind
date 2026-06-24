@@ -35,6 +35,7 @@ import { useInfiniteScroll } from "@/lib/use-infinite-scroll";
 import type { CurationAction, FundingNote } from "@/lib/curation";
 import { batchSortKey } from "@/lib/batch-sort";
 import { cn } from "@/lib/utils";
+import { CompanyModal } from "@/components/company-modal";
 
 export type SlimCompany = {
   name: string;
@@ -42,9 +43,16 @@ export type SlimCompany = {
   batch: string;
   status: string;
   industry: string;
+  subindustry: string;
   one_liner: string;
+  long_description: string;
   website: string;
   tags: string[];
+  team_size: number | null;
+  all_locations: string;
+  stage: string;
+  launched_at: number | null;
+  top_company: boolean;
 };
 
 const PAGE_SIZE = 50;
@@ -160,6 +168,7 @@ export function CompaniesExplorer({
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [expandedFunding, setExpandedFunding] = useState<string | null>(null);
+  const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const { map: curation, setAction } = useCuration("company", initialCuration);
 
   const industries = useMemo(
@@ -319,10 +328,14 @@ export function CompaniesExplorer({
               className="rounded-[1.5rem] border border-border/70 bg-card p-4 shadow-sm"
             >
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
+                <button
+                  type="button"
+                  onClick={() => setSelectedSlug(c.slug)}
+                  className="min-w-0 text-left"
+                >
                   <p className="font-medium text-foreground">{c.name}</p>
                   <p className="mt-0.5 text-sm text-muted-foreground">{c.one_liner}</p>
-                </div>
+                </button>
                 <LikeDislike
                   value={curation[c.slug]}
                   onChange={(action) => setAction(c.slug, action)}
@@ -398,8 +411,16 @@ export function CompaniesExplorer({
                         onChange={(action) => setAction(c.slug, action)}
                       />
                     </TableCell>
-                    <TableCell className="font-medium">{c.name}</TableCell>
-                    <TableCell className="max-w-[320px] truncate text-muted-foreground">
+                    <TableCell
+                      className="cursor-pointer font-medium hover:text-primary"
+                      onClick={() => setSelectedSlug(c.slug)}
+                    >
+                      {c.name}
+                    </TableCell>
+                    <TableCell
+                      className="max-w-[320px] cursor-pointer truncate text-muted-foreground hover:text-foreground"
+                      onClick={() => setSelectedSlug(c.slug)}
+                    >
                       {c.one_liner}
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">
@@ -464,6 +485,15 @@ export function CompaniesExplorer({
           <span>All {filtered.length.toLocaleString()} companies shown</span>
         ) : null}
       </div>
+
+      <CompanyModal
+        company={companies.find((c) => c.slug === selectedSlug) ?? null}
+        open={selectedSlug !== null}
+        onOpenChange={(open) => !open && setSelectedSlug(null)}
+        rating={selectedSlug ? curation[selectedSlug] : undefined}
+        onRatingChange={(action) => selectedSlug && setAction(selectedSlug, action)}
+        fundingNote={selectedSlug ? fundingNotes[selectedSlug] : undefined}
+      />
     </div>
   );
 }

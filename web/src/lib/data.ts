@@ -34,6 +34,7 @@ export type Company = {
   industry: string;
   subindustry: string;
   one_liner: string;
+  long_description: string;
   team_size: number | null;
   all_locations: string;
   website: string;
@@ -54,6 +55,7 @@ export function getCompanies(): Company[] {
     industry: row.industry ?? "",
     subindustry: row.subindustry ?? "",
     one_liner: row.one_liner ?? "",
+    long_description: row.long_description ?? "",
     team_size: row.team_size ? Number(row.team_size) : null,
     all_locations: row.all_locations ?? "",
     website: row.website ?? "",

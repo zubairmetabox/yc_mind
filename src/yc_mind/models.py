@@ -22,6 +22,7 @@ SCALAR_FIELDS = (
     "industry",
     "subindustry",
     "one_liner",
+    "long_description",
     "team_size",
     "all_locations",
     "website",
@@ -58,6 +59,7 @@ class Company:
     industry: str
     subindustry: str
     one_liner: str
+    long_description: str
     team_size: object
     all_locations: str
     website: str

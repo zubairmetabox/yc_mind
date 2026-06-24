@@ -5,7 +5,7 @@ import { MobileTabBar } from "@/components/mobile-tab-bar";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="h-screen overflow-hidden" style={{ background: "var(--app-shell-bg)" }}>
+    <div className="h-dvh overflow-hidden" style={{ background: "var(--app-shell-bg)" }}>
       <div className="mx-auto grid h-full max-w-[1600px] gap-4 lg:p-4 lg:grid-cols-[260px_1fr]">
         {/* Sidebar — desktop only, mobile uses the bottom tab bar instead */}
         <div className="hidden h-full min-h-0 flex-col gap-4 lg:flex">

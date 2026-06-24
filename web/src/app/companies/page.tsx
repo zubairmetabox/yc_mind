@@ -14,9 +14,16 @@ export default async function CompaniesPage() {
       batch: c.batch,
       status: c.status,
       industry: c.industry,
+      subindustry: c.subindustry,
       one_liner: c.one_liner,
+      long_description: c.long_description,
       website: c.website,
       tags: c.tags,
+      team_size: c.team_size,
+      all_locations: c.all_locations,
+      stage: c.stage,
+      launched_at: c.launched_at,
+      top_company: c.top_company,
     }));
   const { companies: initialCuration, fundingNotes } = await getCurationState();
 

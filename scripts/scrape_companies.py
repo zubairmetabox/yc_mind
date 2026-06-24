@@ -16,7 +16,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from yc_mind.models import SCALAR_FIELDS, LIST_FIELDS  # noqa: E402
-from yc_mind.scrape import fetch_all_companies, save_companies  # noqa: E402
+from yc_mind.scrape import fetch_all_companies, load_companies, save_companies  # noqa: E402
 
 
 def _progress(batch: str, i: int, total: int) -> None:
@@ -40,7 +40,18 @@ def main() -> None:
                         help="Output JSONL path (raw hits). Default: data/companies.jsonl")
     parser.add_argument("--csv", default="data/companies.csv",
                         help="Flat CSV path. Default: data/companies.csv")
+    parser.add_argument("--from-jsonl", action="store_true", dest="from_jsonl",
+                        help="Regenerate the CSV from the existing JSONL instead of "
+                             "re-scraping (e.g. after adding a field to SCALAR_FIELDS).")
     args = parser.parse_args()
+
+    if args.from_jsonl:
+        print(f"Loading existing companies from {args.out} (no re-scrape)...")
+        companies = load_companies(args.out)
+        print(f"Loaded {len(companies)} companies.")
+        csv_path = write_csv(companies, Path(args.csv))
+        print(f"Wrote {csv_path}")
+        return
 
     print("Fetching YC company directory (batch by batch)...")
     companies = fetch_all_companies(progress=_progress)
