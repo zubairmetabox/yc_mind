@@ -57,7 +57,7 @@ export type SlimCompany = {
 
 const PAGE_SIZE = 50;
 const ALL = "__all__";
-type CurationFilter = "all" | "liked" | "disliked" | "unrated";
+type CurationFilter = "unrated" | "liked" | "disliked" | "neutral" | "all";
 type SortKey = "name" | "batch" | "industry" | "status";
 type SortDir = "asc" | "desc";
 
@@ -164,7 +164,9 @@ export function CompaniesExplorer({
   const [industry, setIndustry] = useState(ALL);
   const [batch, setBatch] = useState(ALL);
   const [status, setStatus] = useState(ALL);
-  const [curationFilter, setCurationFilter] = useState<CurationFilter>("all");
+  // Defaults to unrated-only so rated companies don't pile up at the top of
+  // the list, forcing a scroll past them to reach fresh ones every time.
+  const [curationFilter, setCurationFilter] = useState<CurationFilter>("unrated");
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [expandedFunding, setExpandedFunding] = useState<string | null>(null);
@@ -196,6 +198,7 @@ export function CompaniesExplorer({
       const rating = curation[c.slug];
       if (curationFilter === "liked" && rating !== "like") return false;
       if (curationFilter === "disliked" && rating !== "dislike") return false;
+      if (curationFilter === "neutral" && rating !== "neutral") return false;
       if (curationFilter === "unrated" && rating) return false;
       if (!q) return true;
       return (
@@ -229,6 +232,8 @@ export function CompaniesExplorer({
 
   const likedCount = Object.values(curation).filter((v) => v === "like").length;
   const dislikedCount = Object.values(curation).filter((v) => v === "dislike").length;
+  const neutralCount = Object.values(curation).filter((v) => v === "neutral").length;
+  const unratedCount = companies.length - Object.keys(curation).length;
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -295,10 +300,11 @@ export function CompaniesExplorer({
       <div className="flex flex-wrap items-center gap-2">
         {(
           [
-            { value: "all", label: "All" },
+            { value: "unrated", label: `Unrated (${unratedCount})` },
             { value: "liked", label: `Liked (${likedCount})` },
+            { value: "neutral", label: `Neutral (${neutralCount})` },
             { value: "disliked", label: `Disliked (${dislikedCount})` },
-            { value: "unrated", label: "Unrated" },
+            { value: "all", label: "All" },
           ] as { value: CurationFilter; label: string }[]
         ).map((opt) => (
           <Button

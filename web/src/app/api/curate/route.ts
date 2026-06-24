@@ -16,7 +16,7 @@ export async function POST(req: Request) {
   if (!id || (type !== "company" && type !== "idea")) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
-  if (action !== "like" && action !== "dislike" && action !== "clear") {
+  if (action !== "like" && action !== "dislike" && action !== "neutral" && action !== "clear") {
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   }
 

@@ -37,8 +37,8 @@ export default async function CompaniesPage() {
           {companies.length.toLocaleString()} YC companies
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Full public directory — search by name, one-liner, or tag, and filter by
-          industry or batch. Rate companies to build a curated list.
+          Showing unrated companies first — rated ones move out of the way once you
+          rate them. Switch tabs to review what you&apos;ve already rated.
         </p>
       </div>
       <CompaniesExplorer

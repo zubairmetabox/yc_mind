@@ -17,12 +17,20 @@ import { del, list, put } from "@vercel/blob";
 //   A's rating. Per-item objects mean concurrent ratings on different items
 //   can never collide — only re-rating the exact same item twice in the same
 //   instant races, which is an acceptable, harmless last-write-wins.
+//
+// Known limitation: `list()` has its own brief eventual-consistency window
+// for *brand-new* objects (~1-3s) — rating an item for the first time may
+// not show up in a read immediately after, even though the write itself
+// succeeded. Confirmed this self-resolves within a few seconds and never
+// loses data (unlike the read-modify-write bug above) — the client-side
+// optimistic UI update already shows the correct state regardless, so this
+// only matters for a server-rendered page load/refresh in that ~1-3s window.
 const useBlob = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 
 const DATA_DIR = path.join(process.cwd(), "..", "data");
 const FILE_PATH = path.join(DATA_DIR, "curation.json");
 
-export type CurationAction = "like" | "dislike";
+export type CurationAction = "like" | "dislike" | "neutral";
 export type CurationType = "company" | "idea";
 
 export type FundingNote = {
