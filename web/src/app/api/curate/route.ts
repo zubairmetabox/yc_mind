@@ -23,7 +23,8 @@ export async function POST(req: Request) {
   try {
     const state = await setCuration(type, id, action);
     return NextResponse.json(state);
-  } catch {
+  } catch (err) {
+    console.error("setCuration failed:", err);
     // Most likely cause: deployed on Vercel without Blob storage enabled yet
     // (no durable filesystem to fall back to). See web/README.md.
     return NextResponse.json(
