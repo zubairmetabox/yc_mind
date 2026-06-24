@@ -1,3 +1,4 @@
+import { auth } from "@clerk/nextjs/server";
 import { CompaniesExplorer } from "@/components/companies-explorer";
 import { getCompanies } from "@/lib/data";
 import { getCurationState } from "@/lib/curation";
@@ -5,6 +6,9 @@ import { getCurationState } from "@/lib/curation";
 export const dynamic = "force-dynamic";
 
 export default async function CompaniesPage() {
+  const { userId } = await auth();
+  if (!userId) return null; // proxy.ts already guarantees this; satisfies TS
+
   const companies = getCompanies()
     .slice()
     .reverse() // newest batches first
@@ -25,7 +29,7 @@ export default async function CompaniesPage() {
       launched_at: c.launched_at,
       top_company: c.top_company,
     }));
-  const { companies: initialCuration, fundingNotes, favoriteCompanies } = await getCurationState();
+  const { companies: initialCuration, fundingNotes, favoriteCompanies } = await getCurationState(userId);
 
   return (
     <div className="flex flex-col gap-6">

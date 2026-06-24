@@ -9,6 +9,7 @@
     "sync-data": "node scripts/sync-data.mjs"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.5.8",
     "@vercel/blob": "^2.4.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

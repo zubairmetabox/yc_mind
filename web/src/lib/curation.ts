@@ -4,12 +4,11 @@ import { del, list, put } from "@vercel/blob";
 
 // Two storage backends, picked automatically:
 //
-// - Local dev: data/curation.json on disk (../data, alongside the Python
-//   pipeline's output) — a single shared file is fine here (one dev server,
-//   no concurrent writers), and a Claude session can read it directly.
+// - Local dev: data/curation-{userId}.json on disk (../data, alongside the
+//   Python pipeline's output) — a Claude session can read it directly.
 // - Deployed (Vercel): Vercel Blob, via BLOB_READ_WRITE_TOKEN (auto-injected
 //   once a private Blob store is connected). Each rating is its OWN object
-//   (curation/companies/{slug}.json, not one shared curation.json) —
+//   (curation/{userId}/companies/{slug}.json, not one shared document) —
 //   discovered the hard way that a single read-modify-write document loses
 //   updates when ratings happen in quick succession (e.g. liking several
 //   companies while scrolling on a phone): request B reads a snapshot from
@@ -25,10 +24,19 @@ import { del, list, put } from "@vercel/blob";
 // loses data (unlike the read-modify-write bug above) — the client-side
 // optimistic UI update already shows the correct state regardless, so this
 // only matters for a server-rendered page load/refresh in that ~1-3s window.
+//
+// Ratings and favorites are namespaced per-user (Clerk userId) — everyone
+// who signs in gets their own independent list. Funding research notes are
+// NOT namespaced — they're objective research, not a personal opinion, so
+// one person's lookup benefits everyone using the dashboard.
 const useBlob = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 
 const DATA_DIR = path.join(process.cwd(), "..", "data");
-const FILE_PATH = path.join(DATA_DIR, "curation.json");
+const FUNDING_FILE_PATH = path.join(DATA_DIR, "funding.json");
+
+function userFilePath(userId: string): string {
+  return path.join(DATA_DIR, `curation-${encodeURIComponent(userId)}.json`);
+}
 
 export type CurationAction = "like" | "dislike" | "neutral";
 export type CurationType = "company" | "idea";
@@ -51,10 +59,16 @@ export type CurationState = {
   favoriteIdeas: string[];
 };
 
-const EMPTY_STATE: CurationState = {
+type UserState = {
+  companies: Record<string, CurationAction>;
+  ideas: Record<string, CurationAction>;
+  favoriteCompanies: string[];
+  favoriteIdeas: string[];
+};
+
+const EMPTY_USER_STATE: UserState = {
   companies: {},
   ideas: {},
-  fundingNotes: {},
   favoriteCompanies: [],
   favoriteIdeas: [],
 };
@@ -63,18 +77,18 @@ function blobAuthHeaders(): HeadersInit {
   return { Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}` };
 }
 
-function ratingPathname(type: CurationType, id: string): string {
+function ratingPathname(userId: string, type: CurationType, id: string): string {
   const bucket = type === "company" ? "companies" : "ideas";
-  return `curation/${bucket}/${encodeURIComponent(id)}.json`;
+  return `curation/${encodeURIComponent(userId)}/${bucket}/${encodeURIComponent(id)}.json`;
+}
+
+function favoritePathname(userId: string, type: CurationType, id: string): string {
+  const bucket = type === "company" ? "favorites-companies" : "favorites-ideas";
+  return `curation/${encodeURIComponent(userId)}/${bucket}/${encodeURIComponent(id)}.json`;
 }
 
 function fundingPathname(companySlug: string): string {
   return `curation/funding/${encodeURIComponent(companySlug)}.json`;
-}
-
-function favoritePathname(type: CurationType, id: string): string {
-  const bucket = type === "company" ? "favorites-companies" : "favorites-ideas";
-  return `curation/${bucket}/${encodeURIComponent(id)}.json`;
 }
 
 async function fetchJson<T>(url: string): Promise<T | null> {
@@ -103,80 +117,112 @@ async function listAndFetch<T>(prefix: string): Promise<Record<string, T>> {
   return out;
 }
 
-async function readState(): Promise<CurationState> {
+async function readFundingNotes(): Promise<Record<string, FundingNote>> {
   if (useBlob) {
     try {
-      const [companies, ideas, fundingNotes, favCompanies, favIdeas] = await Promise.all([
-        listAndFetch<{ action: CurationAction }>("curation/companies/"),
-        listAndFetch<{ action: CurationAction }>("curation/ideas/"),
-        listAndFetch<FundingNote>("curation/funding/"),
-        listAndFetch<{ starred: true }>("curation/favorites-companies/"),
-        listAndFetch<{ starred: true }>("curation/favorites-ideas/"),
+      return await listAndFetch<FundingNote>("curation/funding/");
+    } catch {
+      return {};
+    }
+  }
+
+  if (!fs.existsSync(FUNDING_FILE_PATH)) return {};
+  try {
+    return JSON.parse(fs.readFileSync(FUNDING_FILE_PATH, "utf-8"));
+  } catch {
+    return {};
+  }
+}
+
+async function readUserState(userId: string): Promise<UserState> {
+  if (useBlob) {
+    try {
+      const [companies, ideas, favCompanies, favIdeas] = await Promise.all([
+        listAndFetch<{ action: CurationAction }>(`curation/${encodeURIComponent(userId)}/companies/`),
+        listAndFetch<{ action: CurationAction }>(`curation/${encodeURIComponent(userId)}/ideas/`),
+        listAndFetch<{ starred: true }>(`curation/${encodeURIComponent(userId)}/favorites-companies/`),
+        listAndFetch<{ starred: true }>(`curation/${encodeURIComponent(userId)}/favorites-ideas/`),
       ]);
       return {
-        companies: Object.fromEntries(
-          Object.entries(companies).map(([id, v]) => [id, v.action]),
-        ),
+        companies: Object.fromEntries(Object.entries(companies).map(([id, v]) => [id, v.action])),
         ideas: Object.fromEntries(Object.entries(ideas).map(([id, v]) => [id, v.action])),
-        fundingNotes,
         favoriteCompanies: Object.keys(favCompanies),
         favoriteIdeas: Object.keys(favIdeas),
       };
     } catch {
-      return EMPTY_STATE;
+      return EMPTY_USER_STATE;
     }
   }
 
-  if (!fs.existsSync(FILE_PATH)) return EMPTY_STATE;
+  const filePath = userFilePath(userId);
+  if (!fs.existsSync(filePath)) return EMPTY_USER_STATE;
   try {
-    const raw = JSON.parse(fs.readFileSync(FILE_PATH, "utf-8"));
+    const raw = JSON.parse(fs.readFileSync(filePath, "utf-8"));
     return {
       companies: raw.companies ?? {},
       ideas: raw.ideas ?? {},
-      fundingNotes: raw.fundingNotes ?? {},
       favoriteCompanies: raw.favoriteCompanies ?? [],
       favoriteIdeas: raw.favoriteIdeas ?? [],
     };
   } catch {
-    return EMPTY_STATE;
+    return EMPTY_USER_STATE;
   }
 }
 
-function writeLocalState(mutate: (state: CurationState) => void): CurationState {
-  const state = fs.existsSync(FILE_PATH)
+function writeLocalUserState(userId: string, mutate: (state: UserState) => void): UserState {
+  const filePath = userFilePath(userId);
+  const state = fs.existsSync(filePath)
     ? (() => {
         try {
-          const raw = JSON.parse(fs.readFileSync(FILE_PATH, "utf-8"));
+          const raw = JSON.parse(fs.readFileSync(filePath, "utf-8"));
           return {
             companies: raw.companies ?? {},
             ideas: raw.ideas ?? {},
-            fundingNotes: raw.fundingNotes ?? {},
             favoriteCompanies: raw.favoriteCompanies ?? [],
             favoriteIdeas: raw.favoriteIdeas ?? [],
           };
         } catch {
-          return { companies: {}, ideas: {}, fundingNotes: {}, favoriteCompanies: [], favoriteIdeas: [] };
+          return { ...EMPTY_USER_STATE };
         }
       })()
-    : { companies: {}, ideas: {}, fundingNotes: {}, favoriteCompanies: [], favoriteIdeas: [] };
+    : { ...EMPTY_USER_STATE };
 
   mutate(state);
   fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(FILE_PATH, JSON.stringify(state, null, 2) + "\n", "utf-8");
+  fs.writeFileSync(filePath, JSON.stringify(state, null, 2) + "\n", "utf-8");
   return state;
 }
 
-export async function getCurationState(): Promise<CurationState> {
-  return readState();
+function writeLocalFundingNote(companySlug: string, note: FundingNote): void {
+  let notes: Record<string, FundingNote> = {};
+  if (fs.existsSync(FUNDING_FILE_PATH)) {
+    try {
+      notes = JSON.parse(fs.readFileSync(FUNDING_FILE_PATH, "utf-8"));
+    } catch {
+      notes = {};
+    }
+  }
+  notes[companySlug] = note;
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.writeFileSync(FUNDING_FILE_PATH, JSON.stringify(notes, null, 2) + "\n", "utf-8");
+}
+
+export async function getCurationState(userId: string): Promise<CurationState> {
+  const [userState, fundingNotes] = await Promise.all([
+    readUserState(userId),
+    readFundingNotes(),
+  ]);
+  return { ...userState, fundingNotes };
 }
 
 export async function setCuration(
+  userId: string,
   type: CurationType,
   id: string,
   action: CurationAction | "clear",
-): Promise<CurationState> {
+): Promise<void> {
   if (useBlob) {
-    const pathname = ratingPathname(type, id);
+    const pathname = ratingPathname(userId, type, id);
     if (action === "clear") {
       await del(pathname).catch(() => {});
     } else {
@@ -187,10 +233,10 @@ export async function setCuration(
         contentType: "application/json",
       });
     }
-    return readState();
+    return;
   }
 
-  return writeLocalState((state) => {
+  writeLocalUserState(userId, (state) => {
     const bucket = type === "company" ? state.companies : state.ideas;
     if (action === "clear") delete bucket[id];
     else bucket[id] = action;
@@ -198,12 +244,13 @@ export async function setCuration(
 }
 
 export async function setFavorite(
+  userId: string,
   type: CurationType,
   id: string,
   starred: boolean,
-): Promise<CurationState> {
+): Promise<void> {
   if (useBlob) {
-    const pathname = favoritePathname(type, id);
+    const pathname = favoritePathname(userId, type, id);
     if (!starred) {
       await del(pathname).catch(() => {});
     } else {
@@ -214,10 +261,10 @@ export async function setFavorite(
         contentType: "application/json",
       });
     }
-    return readState();
+    return;
   }
 
-  return writeLocalState((state) => {
+  writeLocalUserState(userId, (state) => {
     const bucket = type === "company" ? state.favoriteCompanies : state.favoriteIdeas;
     const idx = bucket.indexOf(id);
     if (starred && idx === -1) bucket.push(id);
@@ -226,11 +273,8 @@ export async function setFavorite(
 }
 
 // Used for targeted funding lookups (e.g. a Claude session researching a
-// liked company on request) — not bulk-populated.
-export async function setFundingNote(
-  companySlug: string,
-  note: FundingNote,
-): Promise<CurationState> {
+// liked company on request) — not bulk-populated. Shared across all users.
+export async function setFundingNote(companySlug: string, note: FundingNote): Promise<void> {
   if (useBlob) {
     await put(fundingPathname(companySlug), JSON.stringify(note), {
       access: "private",
@@ -238,10 +282,8 @@ export async function setFundingNote(
       allowOverwrite: true,
       contentType: "application/json",
     });
-    return readState();
+    return;
   }
 
-  return writeLocalState((state) => {
-    state.fundingNotes[companySlug] = note;
-  });
+  writeLocalFundingNote(companySlug, note);
 }

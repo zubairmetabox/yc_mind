@@ -69,6 +69,15 @@ If `/api/curate` ever returns a `503`, it means `BLOB_READ_WRITE_TOKEN` isn't
 set (e.g. a fresh project, or the store got disconnected) — reconnect via
 Vercel dashboard → Storage, or `vercel integration resource connect <store-name> --yes`.
 
+### One-time migration: pre-auth data → a specific user
+
+Ratings made before auth was added lived at un-namespaced paths
+(`curation/companies/{slug}.json`). `scripts/migrate-curation.mjs <email>`
+looks up that email's Clerk `userId` and moves every matching blob to
+`curation/{userId}/...`, deleting the old copy. Already run once for
+`zubair@metabox.mu` (33 items). Re-run for anyone else who had data before
+auth existed — reads secrets from `.env.local` internally, never printed.
+
 ### Redeploying from the CLI
 
 ```bash
@@ -86,20 +95,42 @@ vercel --prod --yes
 | `/companies` | Full YC directory — search by name/one-liner/tag, filter by industry/batch, like/dislike each row, filter by rating, paginated |
 | `/ideas` | Each generated idea as its own card with like/dislike, filterable by rating |
 
-## Curation (like/dislike)
+## Auth (Clerk) — everyone gets their own ratings
 
-Ratings persist so a Claude session can read what got liked/disliked and
-build curated lists or do targeted follow-up research (e.g. funding-history
-lookups on a liked company) — without needing browser access. Fetch
-`GET https://yc-mind.vercel.app/api/curate` (or read `data/curation.json`
-locally) to get the current state as JSON, regardless of which backend is
-behind it. Storage is dual-mode: a single shared `data/curation.json` locally
-(no concurrency to worry about — one dev server), per-item Blob objects in
-production (see "Deploying" above for why). `lib/curation.ts` is the only file
-that reads/writes it; `POST /api/curate` is the only way the UI touches it.
+Every route requires sign-in (`src/proxy.ts` — `clerkMiddleware` +
+`auth.protect()`, no public pages). Provisioned via Vercel's marketplace
+integration (`vercel integration add clerk`, then
+`vercel integration resource connect <store-name> --yes`) — no Clerk dashboard
+account needed up front, env vars (`CLERK_SECRET_KEY`,
+`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`) auto-injected the same way Blob's token
+was. Google sign-in is enabled by default on a fresh Clerk instance — no
+extra config needed. Sign-up is open (anyone with the URL + a Google account
+can create an account); each person's ratings/favorites are completely
+separate from everyone else's.
 
-Note: `/api/curate` has no auth — anyone with the URL can read or write
-ratings. Fine for a single-user internal tool; revisit if this is ever shared.
+**No database for any of this** — Clerk hosts user identity entirely on its
+own servers (sessions are JWT cookies, not a DB row we manage), and per-user
+data still lives in the same per-item Vercel Blob pattern as before, just
+namespaced by Clerk's `userId`: `curation/{userId}/companies/{slug}.json`,
+`curation/{userId}/favorites-ideas/{id}.json`, etc.
+
+**Funding research notes are the one exception — shared, not per-user**
+(`curation/funding/{slug}.json`, no userId in the path). They're objective
+research a Claude session did, not a personal opinion, so one person's lookup
+benefits everyone using the dashboard.
+
+## Curation (like/dislike/neutral + favorites)
+
+Ratings persist per-user so a Claude session can read what a specific person
+liked/disliked and build curated lists or do targeted follow-up research
+(e.g. funding-history lookups on a liked company) — without needing browser
+access. Fetch `GET https://yc-mind.vercel.app/api/curate` *as that user*
+(needs their session cookie — there's no way to fetch another user's ratings
+without it, by design) to get their current state as JSON. Locally, each
+user gets their own `data/curation-{userId}.json`; funding notes are shared
+in `data/funding.json`. `lib/curation.ts` is the only file that reads/writes
+any of it; `POST /api/curate` and `POST /api/favorite` are the only ways the
+UI touches it.
 
 ## "Why is this rising" notes
 

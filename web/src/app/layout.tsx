@@ -3,6 +3,7 @@ import Script from "next/script";
 import NextTopLoader from "nextjs-toploader";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
+import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppShell } from "@/components/app-shell";
@@ -27,9 +28,9 @@ const themeInitScript = `
 export const metadata: Metadata = {
   title: "YC_Mind",
   description: "YC funding trend explorer — Metabox internal.",
-  // No auth on this app — keep it out of search engines entirely so the
-  // unprotected /api/curate and /api/favorite endpoints don't get found
-  // via a search index. See also robots.ts and middleware.ts.
+  // Even with Clerk auth in front of everything, keep this out of search
+  // engines too — no reason for it to ever show up in a search index.
+  // See also robots.ts and proxy.ts.
   robots: {
     index: false,
     follow: false,
@@ -44,25 +45,27 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-      suppressHydrationWarning
-    >
-      <head>
-        <Script id="theme-init" strategy="beforeInteractive">
-          {themeInitScript}
-        </Script>
-      </head>
-      <body className="min-h-full font-sans text-foreground">
-        <NextTopLoader color="#9edcff" height={2} showSpinner={false} shadow={false} />
-        <ThemeProvider>
-          <TooltipProvider>
-            <AppShell>{children}</AppShell>
-            <Toaster position="top-center" richColors />
-          </TooltipProvider>
-        </ThemeProvider>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html
+        lang="en"
+        className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+        suppressHydrationWarning
+      >
+        <head>
+          <Script id="theme-init" strategy="beforeInteractive">
+            {themeInitScript}
+          </Script>
+        </head>
+        <body className="min-h-full font-sans text-foreground">
+          <NextTopLoader color="#9edcff" height={2} showSpinner={false} shadow={false} />
+          <ThemeProvider>
+            <TooltipProvider>
+              <AppShell>{children}</AppShell>
+              <Toaster position="top-center" richColors />
+            </TooltipProvider>
+          </ThemeProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

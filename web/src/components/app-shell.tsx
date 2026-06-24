@@ -1,3 +1,4 @@
+import { UserButton } from "@clerk/nextjs";
 import { BrandMark } from "@/components/brand-mark";
 import { NavLinks } from "@/components/nav-links";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -30,7 +31,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="hidden text-sm text-muted-foreground lg:block">
               YC company directory + theme trends, refreshed from local data.
             </div>
-            <ThemeToggle />
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <UserButton />
+            </div>
           </header>
           <main className="app-scrollbar flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6">{children}</main>
           <MobileTabBar />

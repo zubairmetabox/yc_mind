@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { getCurationState, setCuration, type CurationAction, type CurationType } from "@/lib/curation";
 
 export async function GET() {
-  return NextResponse.json(await getCurationState());
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  return NextResponse.json(await getCurationState(userId));
 }
 
 export async function POST(req: Request) {
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+
   const body = await req.json();
   const { type, id, action } = body as {
     type: CurationType;
@@ -21,7 +27,8 @@ export async function POST(req: Request) {
   }
 
   try {
-    const state = await setCuration(type, id, action);
+    await setCuration(userId, type, id, action);
+    const state = await getCurationState(userId);
     return NextResponse.json(state);
   } catch (err) {
     console.error("setCuration failed:", err);

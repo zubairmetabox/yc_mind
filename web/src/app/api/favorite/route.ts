@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { getCurationState, setFavorite, type CurationType } from "@/lib/curation";
 
 export async function GET() {
-  return NextResponse.json(await getCurationState());
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  return NextResponse.json(await getCurationState(userId));
 }
 
 export async function POST(req: Request) {
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+
   const body = await req.json();
   const { type, id, starred } = body as {
     type: CurationType;
@@ -18,7 +24,8 @@ export async function POST(req: Request) {
   }
 
   try {
-    const state = await setFavorite(type, id, starred);
+    await setFavorite(userId, type, id, starred);
+    const state = await getCurationState(userId);
     return NextResponse.json(state);
   } catch (err) {
     console.error("setFavorite failed:", err);
