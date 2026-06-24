@@ -45,9 +45,19 @@ export type CurationState = {
   companies: Record<string, CurationAction>;
   ideas: Record<string, CurationAction>;
   fundingNotes: Record<string, FundingNote>;
+  // Favoriting is orthogonal to rating — a company can be liked AND starred,
+  // or starred with no rating at all (a bookmark, not a quality judgment).
+  favoriteCompanies: string[];
+  favoriteIdeas: string[];
 };
 
-const EMPTY_STATE: CurationState = { companies: {}, ideas: {}, fundingNotes: {} };
+const EMPTY_STATE: CurationState = {
+  companies: {},
+  ideas: {},
+  fundingNotes: {},
+  favoriteCompanies: [],
+  favoriteIdeas: [],
+};
 
 function blobAuthHeaders(): HeadersInit {
   return { Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}` };
@@ -60,6 +70,11 @@ function ratingPathname(type: CurationType, id: string): string {
 
 function fundingPathname(companySlug: string): string {
   return `curation/funding/${encodeURIComponent(companySlug)}.json`;
+}
+
+function favoritePathname(type: CurationType, id: string): string {
+  const bucket = type === "company" ? "favorites-companies" : "favorites-ideas";
+  return `curation/${bucket}/${encodeURIComponent(id)}.json`;
 }
 
 async function fetchJson<T>(url: string): Promise<T | null> {
@@ -91,10 +106,12 @@ async function listAndFetch<T>(prefix: string): Promise<Record<string, T>> {
 async function readState(): Promise<CurationState> {
   if (useBlob) {
     try {
-      const [companies, ideas, fundingNotes] = await Promise.all([
+      const [companies, ideas, fundingNotes, favCompanies, favIdeas] = await Promise.all([
         listAndFetch<{ action: CurationAction }>("curation/companies/"),
         listAndFetch<{ action: CurationAction }>("curation/ideas/"),
         listAndFetch<FundingNote>("curation/funding/"),
+        listAndFetch<{ starred: true }>("curation/favorites-companies/"),
+        listAndFetch<{ starred: true }>("curation/favorites-ideas/"),
       ]);
       return {
         companies: Object.fromEntries(
@@ -102,6 +119,8 @@ async function readState(): Promise<CurationState> {
         ),
         ideas: Object.fromEntries(Object.entries(ideas).map(([id, v]) => [id, v.action])),
         fundingNotes,
+        favoriteCompanies: Object.keys(favCompanies),
+        favoriteIdeas: Object.keys(favIdeas),
       };
     } catch {
       return EMPTY_STATE;
@@ -115,6 +134,8 @@ async function readState(): Promise<CurationState> {
       companies: raw.companies ?? {},
       ideas: raw.ideas ?? {},
       fundingNotes: raw.fundingNotes ?? {},
+      favoriteCompanies: raw.favoriteCompanies ?? [],
+      favoriteIdeas: raw.favoriteIdeas ?? [],
     };
   } catch {
     return EMPTY_STATE;
@@ -130,12 +151,14 @@ function writeLocalState(mutate: (state: CurationState) => void): CurationState 
             companies: raw.companies ?? {},
             ideas: raw.ideas ?? {},
             fundingNotes: raw.fundingNotes ?? {},
+            favoriteCompanies: raw.favoriteCompanies ?? [],
+            favoriteIdeas: raw.favoriteIdeas ?? [],
           };
         } catch {
-          return { companies: {}, ideas: {}, fundingNotes: {} };
+          return { companies: {}, ideas: {}, fundingNotes: {}, favoriteCompanies: [], favoriteIdeas: [] };
         }
       })()
-    : { companies: {}, ideas: {}, fundingNotes: {} };
+    : { companies: {}, ideas: {}, fundingNotes: {}, favoriteCompanies: [], favoriteIdeas: [] };
 
   mutate(state);
   fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -171,6 +194,34 @@ export async function setCuration(
     const bucket = type === "company" ? state.companies : state.ideas;
     if (action === "clear") delete bucket[id];
     else bucket[id] = action;
+  });
+}
+
+export async function setFavorite(
+  type: CurationType,
+  id: string,
+  starred: boolean,
+): Promise<CurationState> {
+  if (useBlob) {
+    const pathname = favoritePathname(type, id);
+    if (!starred) {
+      await del(pathname).catch(() => {});
+    } else {
+      await put(pathname, JSON.stringify({ starred: true }), {
+        access: "private",
+        addRandomSuffix: false,
+        allowOverwrite: true,
+        contentType: "application/json",
+      });
+    }
+    return readState();
+  }
+
+  return writeLocalState((state) => {
+    const bucket = type === "company" ? state.favoriteCompanies : state.favoriteIdeas;
+    const idx = bucket.indexOf(id);
+    if (starred && idx === -1) bucket.push(id);
+    else if (!starred && idx !== -1) bucket.splice(idx, 1);
   });
 }
 

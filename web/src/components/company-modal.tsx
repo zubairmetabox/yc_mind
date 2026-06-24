@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { LikeDislike } from "@/components/like-dislike";
+import { FavoriteStar } from "@/components/favorite-star";
 import type { CurationAction, FundingNote } from "@/lib/curation";
 import type { SlimCompany } from "@/components/companies-explorer";
 
@@ -21,6 +22,8 @@ export function CompanyModal({
   rating,
   onRatingChange,
   fundingNote,
+  starred,
+  onToggleFavorite,
 }: {
   company: SlimCompany | null;
   open: boolean;
@@ -28,8 +31,15 @@ export function CompanyModal({
   rating?: CurationAction;
   onRatingChange: (action: CurationAction | "clear") => void;
   fundingNote?: FundingNote;
+  starred: boolean;
+  onToggleFavorite: (starred: boolean) => void;
 }) {
   if (!company) return null;
+
+  function handleRate(action: CurationAction | "clear") {
+    onRatingChange(action);
+    onOpenChange(false);
+  }
 
   const launchedDate = company.launched_at
     ? new Date(company.launched_at * 1000).toLocaleDateString(undefined, {
@@ -47,11 +57,15 @@ export function CompanyModal({
               <DialogTitle className="flex items-center gap-2 text-lg">
                 {company.name}
                 {company.top_company && (
-                  <Star className="size-4 shrink-0 fill-amber-400 text-amber-400" />
+                  <Star
+                    className="size-4 shrink-0 fill-amber-400 text-amber-400"
+                    aria-label="YC top company"
+                  />
                 )}
               </DialogTitle>
               <DialogDescription className="mt-1">{company.one_liner}</DialogDescription>
             </div>
+            <FavoriteStar starred={starred} onToggle={onToggleFavorite} size="icon" />
           </div>
         </DialogHeader>
 
@@ -139,7 +153,7 @@ export function CompanyModal({
 
         <div className="flex shrink-0 items-center justify-between border-t border-border/70 pt-4">
           <span className="text-sm text-muted-foreground">Rate this company</span>
-          <LikeDislike value={rating} onChange={onRatingChange} size="icon" />
+          <LikeDislike value={rating} onChange={handleRate} size="icon" />
         </div>
       </DialogContent>
     </Dialog>

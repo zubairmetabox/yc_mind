@@ -25,7 +25,7 @@ export default async function CompaniesPage() {
       launched_at: c.launched_at,
       top_company: c.top_company,
     }));
-  const { companies: initialCuration, fundingNotes } = await getCurationState();
+  const { companies: initialCuration, fundingNotes, favoriteCompanies } = await getCurationState();
 
   return (
     <div className="flex flex-col gap-6">
@@ -45,6 +45,7 @@ export default async function CompaniesPage() {
         companies={companies}
         initialCuration={initialCuration}
         fundingNotes={fundingNotes}
+        initialFavorites={favoriteCompanies}
       />
     </div>
   );

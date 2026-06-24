@@ -31,11 +31,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useCuration } from "@/lib/use-curation";
+import { useFavorites } from "@/lib/use-favorites";
 import { useInfiniteScroll } from "@/lib/use-infinite-scroll";
 import type { CurationAction, FundingNote } from "@/lib/curation";
 import { batchSortKey } from "@/lib/batch-sort";
 import { cn } from "@/lib/utils";
 import { CompanyModal } from "@/components/company-modal";
+import { FavoriteStar } from "@/components/favorite-star";
 
 export type SlimCompany = {
   name: string;
@@ -57,7 +59,7 @@ export type SlimCompany = {
 
 const PAGE_SIZE = 50;
 const ALL = "__all__";
-type CurationFilter = "unrated" | "liked" | "disliked" | "neutral" | "all";
+type CurationFilter = "unrated" | "liked" | "disliked" | "neutral" | "favorites" | "all";
 type SortKey = "name" | "batch" | "industry" | "status";
 type SortDir = "asc" | "desc";
 
@@ -155,10 +157,12 @@ export function CompaniesExplorer({
   companies,
   initialCuration,
   fundingNotes,
+  initialFavorites,
 }: {
   companies: SlimCompany[];
   initialCuration: Record<string, CurationAction>;
   fundingNotes: Record<string, FundingNote>;
+  initialFavorites: string[];
 }) {
   const [query, setQuery] = useState("");
   const [industry, setIndustry] = useState(ALL);
@@ -172,6 +176,7 @@ export function CompaniesExplorer({
   const [expandedFunding, setExpandedFunding] = useState<string | null>(null);
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const { map: curation, setAction } = useCuration("company", initialCuration);
+  const { favorites, toggle: toggleFavorite } = useFavorites("company", initialFavorites);
 
   const industries = useMemo(
     () => Array.from(new Set(companies.map((c) => c.industry).filter(Boolean))).sort(),
@@ -200,6 +205,7 @@ export function CompaniesExplorer({
       if (curationFilter === "disliked" && rating !== "dislike") return false;
       if (curationFilter === "neutral" && rating !== "neutral") return false;
       if (curationFilter === "unrated" && rating) return false;
+      if (curationFilter === "favorites" && !favorites.has(c.slug)) return false;
       if (!q) return true;
       return (
         c.name.toLowerCase().includes(q) ||
@@ -219,7 +225,7 @@ export function CompaniesExplorer({
     }
 
     return result;
-  }, [companies, query, industry, batch, status, curationFilter, curation, sortKey, sortDir]);
+  }, [companies, query, industry, batch, status, curationFilter, curation, favorites, sortKey, sortDir]);
 
   const { visibleCount, sentinelRef, reset, hasMore } = useInfiniteScroll(filtered.length, PAGE_SIZE);
   const visibleItems = filtered.slice(0, visibleCount);
@@ -234,6 +240,7 @@ export function CompaniesExplorer({
   const dislikedCount = Object.values(curation).filter((v) => v === "dislike").length;
   const neutralCount = Object.values(curation).filter((v) => v === "neutral").length;
   const unratedCount = companies.length - Object.keys(curation).length;
+  const favoritesCount = favorites.size;
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -304,6 +311,7 @@ export function CompaniesExplorer({
             { value: "liked", label: `Liked (${likedCount})` },
             { value: "neutral", label: `Neutral (${neutralCount})` },
             { value: "disliked", label: `Disliked (${dislikedCount})` },
+            { value: "favorites", label: `★ Favorites (${favoritesCount})` },
             { value: "all", label: "All" },
           ] as { value: CurationFilter; label: string }[]
         ).map((opt) => (
@@ -342,10 +350,16 @@ export function CompaniesExplorer({
                   <p className="font-medium text-foreground">{c.name}</p>
                   <p className="mt-0.5 text-sm text-muted-foreground">{c.one_liner}</p>
                 </button>
-                <LikeDislike
-                  value={curation[c.slug]}
-                  onChange={(action) => setAction(c.slug, action)}
-                />
+                <div className="flex shrink-0 items-center gap-1">
+                  <FavoriteStar
+                    starred={favorites.has(c.slug)}
+                    onToggle={(starred) => toggleFavorite(c.slug, starred)}
+                  />
+                  <LikeDislike
+                    value={curation[c.slug]}
+                    onChange={(action) => setAction(c.slug, action)}
+                  />
+                </div>
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <span>{c.batch}</span>
@@ -394,6 +408,7 @@ export function CompaniesExplorer({
         <Table>
           <TableHeader className="sticky top-0 z-10 bg-card">
             <TableRow>
+              <TableHead className="w-10" />
               <TableHead className="w-20">Rate</TableHead>
               <SortableHead label="Name" sortKey="name" active={sortKey} dir={sortDir} onSort={handleSort} />
               <TableHead>One-liner</TableHead>
@@ -411,6 +426,12 @@ export function CompaniesExplorer({
               return (
                 <Fragment key={c.slug}>
                   <TableRow>
+                    <TableCell>
+                      <FavoriteStar
+                        starred={favorites.has(c.slug)}
+                        onToggle={(starred) => toggleFavorite(c.slug, starred)}
+                      />
+                    </TableCell>
                     <TableCell>
                       <LikeDislike
                         value={curation[c.slug]}
@@ -461,7 +482,7 @@ export function CompaniesExplorer({
                   </TableRow>
                   {isOpen && note && (
                     <TableRow>
-                      <TableCell colSpan={8} className="bg-secondary/40 text-sm">
+                      <TableCell colSpan={9} className="bg-secondary/40 text-sm">
                         <FundingDetail note={note} />
                       </TableCell>
                     </TableRow>
@@ -471,7 +492,7 @@ export function CompaniesExplorer({
             })}
             {visibleItems.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
                   No companies match these filters.
                 </TableCell>
               </TableRow>
@@ -499,6 +520,8 @@ export function CompaniesExplorer({
         rating={selectedSlug ? curation[selectedSlug] : undefined}
         onRatingChange={(action) => selectedSlug && setAction(selectedSlug, action)}
         fundingNote={selectedSlug ? fundingNotes[selectedSlug] : undefined}
+        starred={selectedSlug ? favorites.has(selectedSlug) : false}
+        onToggleFavorite={(starred) => selectedSlug && toggleFavorite(selectedSlug, starred)}
       />
     </div>
   );

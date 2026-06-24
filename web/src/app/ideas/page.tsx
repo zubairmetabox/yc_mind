@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function IdeasPage() {
   const markdown = getIdeasMarkdown();
   const parsed = parseIdeasMarkdown(markdown);
-  const { ideas: initialCuration } = await getCurationState();
+  const { ideas: initialCuration, favoriteIdeas } = await getCurationState();
 
   return (
     <div className="flex flex-col gap-6">
@@ -28,7 +28,11 @@ export default async function IdeasPage() {
       </div>
 
       {parsed.ideas.length > 0 ? (
-        <IdeasBoard parsed={parsed} initialCuration={initialCuration} />
+        <IdeasBoard
+          parsed={parsed}
+          initialCuration={initialCuration}
+          initialFavorites={favoriteIdeas}
+        />
       ) : (
         <div className="rounded-[1.75rem] border border-border/80 bg-card p-6 shadow-sm sm:p-8">
           <p className="py-8 text-center text-sm text-muted-foreground">
