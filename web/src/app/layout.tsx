@@ -27,6 +27,19 @@ const themeInitScript = `
 export const metadata: Metadata = {
   title: "YC_Mind",
   description: "YC funding trend explorer — Metabox internal.",
+  // No auth on this app — keep it out of search engines entirely so the
+  // unprotected /api/curate and /api/favorite endpoints don't get found
+  // via a search index. See also robots.ts and middleware.ts.
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+    googleBot: {
+      index: false,
+      follow: false,
+      noimageindex: true,
+    },
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
