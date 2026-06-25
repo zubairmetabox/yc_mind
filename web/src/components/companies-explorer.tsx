@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   Search,
   ExternalLink,
@@ -62,6 +62,18 @@ const ALL = "__all__";
 type CurationFilter = "unrated" | "liked" | "disliked" | "neutral" | "favorites" | "all";
 type SortKey = "name" | "batch" | "industry" | "status";
 type SortDir = "asc" | "desc";
+
+// Rating a company changes which filter tab it belongs to, which would
+// otherwise yank it out of the list on the same render as the click — you'd
+// never even see the button register. Instead: keep it visible for one more
+// beat, animate it out, *then* let the filter actually exclude it.
+const EXIT_ANIMATION_MS = 300;
+// Inline (non-modal) rating: tiny pause before starting the exit so the
+// tapped button's active colour is visible for a moment first.
+const INLINE_FEEDBACK_MS = 150;
+// After the modal's own close animation fires, give it a beat to actually
+// finish before the row starts its own exit — sequential, not simultaneous.
+const MODAL_CLOSE_TRANSITION_MS = 180;
 
 const SORT_GETTERS: Record<SortKey, (c: SlimCompany) => number | string> = {
   name: (c) => c.name.toLowerCase(),
@@ -175,8 +187,46 @@ export function CompaniesExplorer({
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [expandedFunding, setExpandedFunding] = useState<string | null>(null);
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
+  const [exitingSlugs, setExitingSlugs] = useState<Set<string>>(new Set());
+  const exitTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const { map: curation, setAction } = useCuration("company", initialCuration);
   const { favorites, toggle: toggleFavorite } = useFavorites("company", initialFavorites);
+
+  useEffect(() => {
+    return () => {
+      for (const timer of exitTimers.current.values()) clearTimeout(timer);
+    };
+  }, []);
+
+  function triggerExit(slug: string, delayMs = 0) {
+    const existing = exitTimers.current.get(slug);
+    if (existing) clearTimeout(existing);
+
+    const startExit = () => {
+      setExitingSlugs((prev) => new Set(prev).add(slug));
+      const cleanupTimer = setTimeout(() => {
+        setExitingSlugs((prev) => {
+          const next = new Set(prev);
+          next.delete(slug);
+          return next;
+        });
+        exitTimers.current.delete(slug);
+      }, EXIT_ANIMATION_MS);
+      exitTimers.current.set(slug, cleanupTimer);
+    };
+
+    if (delayMs > 0) {
+      const delayTimer = setTimeout(startExit, delayMs);
+      exitTimers.current.set(slug, delayTimer);
+    } else {
+      startExit();
+    }
+  }
+
+  function handleInlineRate(slug: string, action: CurationAction | "clear") {
+    setAction(slug, action);
+    triggerExit(slug, INLINE_FEEDBACK_MS);
+  }
 
   const industries = useMemo(
     () => Array.from(new Set(companies.map((c) => c.industry).filter(Boolean))).sort(),
@@ -200,18 +250,27 @@ export function CompaniesExplorer({
       if (industry !== ALL && c.industry !== industry) return false;
       if (batch !== ALL && c.batch !== batch) return false;
       if (status !== ALL && c.status !== status) return false;
+      if (!q) {
+        // fall through to the rating filter below
+      } else if (
+        !c.name.toLowerCase().includes(q) &&
+        !c.one_liner.toLowerCase().includes(q) &&
+        !c.tags.some((t) => t.toLowerCase().includes(q))
+      ) {
+        return false;
+      }
+
+      // Mid-exit-animation items stay visible regardless of the current
+      // rating tab, so the animation has time to play before they vanish.
+      if (exitingSlugs.has(c.slug)) return true;
+
       const rating = curation[c.slug];
       if (curationFilter === "liked" && rating !== "like") return false;
       if (curationFilter === "disliked" && rating !== "dislike") return false;
       if (curationFilter === "neutral" && rating !== "neutral") return false;
       if (curationFilter === "unrated" && rating) return false;
       if (curationFilter === "favorites" && !favorites.has(c.slug)) return false;
-      if (!q) return true;
-      return (
-        c.name.toLowerCase().includes(q) ||
-        c.one_liner.toLowerCase().includes(q) ||
-        c.tags.some((t) => t.toLowerCase().includes(q))
-      );
+      return true;
     });
 
     if (sortKey) {
@@ -225,7 +284,7 @@ export function CompaniesExplorer({
     }
 
     return result;
-  }, [companies, query, industry, batch, status, curationFilter, curation, favorites, sortKey, sortDir]);
+  }, [companies, query, industry, batch, status, curationFilter, curation, favorites, exitingSlugs, sortKey, sortDir]);
 
   const { visibleCount, sentinelRef, reset, hasMore } = useInfiniteScroll(filtered.length, PAGE_SIZE);
   const visibleItems = filtered.slice(0, visibleCount);
@@ -336,10 +395,16 @@ export function CompaniesExplorer({
         {visibleItems.map((c) => {
           const note = fundingNotes[c.slug];
           const isOpen = expandedFunding === c.slug;
+          const isExiting = exitingSlugs.has(c.slug);
           return (
             <div
               key={c.slug}
-              className="rounded-[1.5rem] border border-border/70 bg-card p-4 shadow-sm"
+              className={cn(
+                "overflow-hidden rounded-[1.5rem] border border-border/70 bg-card shadow-sm transition-all ease-in-out",
+                isExiting
+                  ? "max-h-0 scale-95 border-transparent p-0 opacity-0 duration-300"
+                  : "max-h-[600px] scale-100 p-4 opacity-100 duration-200",
+              )}
             >
               <div className="flex items-start justify-between gap-3">
                 <button
@@ -357,7 +422,7 @@ export function CompaniesExplorer({
                   />
                   <LikeDislike
                     value={curation[c.slug]}
-                    onChange={(action) => setAction(c.slug, action)}
+                    onChange={(action) => handleInlineRate(c.slug, action)}
                   />
                 </div>
               </div>
@@ -423,9 +488,15 @@ export function CompaniesExplorer({
             {visibleItems.map((c) => {
               const note = fundingNotes[c.slug];
               const isOpen = expandedFunding === c.slug;
+              const isExiting = exitingSlugs.has(c.slug);
               return (
                 <Fragment key={c.slug}>
-                  <TableRow>
+                  <TableRow
+                    className={cn(
+                      "transition-opacity duration-300 ease-in-out",
+                      isExiting && "opacity-0",
+                    )}
+                  >
                     <TableCell>
                       <FavoriteStar
                         starred={favorites.has(c.slug)}
@@ -435,7 +506,7 @@ export function CompaniesExplorer({
                     <TableCell>
                       <LikeDislike
                         value={curation[c.slug]}
-                        onChange={(action) => setAction(c.slug, action)}
+                        onChange={(action) => handleInlineRate(c.slug, action)}
                       />
                     </TableCell>
                     <TableCell
@@ -519,6 +590,9 @@ export function CompaniesExplorer({
         onOpenChange={(open) => !open && setSelectedSlug(null)}
         rating={selectedSlug ? curation[selectedSlug] : undefined}
         onRatingChange={(action) => selectedSlug && setAction(selectedSlug, action)}
+        onRated={() => {
+          if (selectedSlug) triggerExit(selectedSlug, MODAL_CLOSE_TRANSITION_MS);
+        }}
         fundingNote={selectedSlug ? fundingNotes[selectedSlug] : undefined}
         starred={selectedSlug ? favorites.has(selectedSlug) : false}
         onToggleFavorite={(starred) => selectedSlug && toggleFavorite(selectedSlug, starred)}

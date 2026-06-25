@@ -1,6 +1,7 @@
 "use client";
 
-import { ExternalLink, MapPin, Users, Calendar, Star } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ExternalLink, MapPin, Users, Calendar, Star, CheckCircle2 } from "lucide-react";
 import {
   Dialog,
   DialogBody,
@@ -12,8 +13,20 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { LikeDislike } from "@/components/like-dislike";
 import { FavoriteStar } from "@/components/favorite-star";
+import { cn } from "@/lib/utils";
 import type { CurationAction, FundingNote } from "@/lib/curation";
 import type { SlimCompany } from "@/components/companies-explorer";
+
+// How long the modal stays open after a rating, showing the confirmation,
+// before it auto-closes. Long enough to actually register, short enough not
+// to feel like a forced wait.
+const DWELL_MS = 450;
+
+const RATED_LABEL: Record<CurationAction, string> = {
+  like: "Rated: Liked",
+  dislike: "Rated: Disliked",
+  neutral: "Rated: Neutral",
+};
 
 export function CompanyModal({
   company,
@@ -21,6 +34,7 @@ export function CompanyModal({
   onOpenChange,
   rating,
   onRatingChange,
+  onRated,
   fundingNote,
   starred,
   onToggleFavorite,
@@ -30,15 +44,45 @@ export function CompanyModal({
   onOpenChange: (open: boolean) => void;
   rating?: CurationAction;
   onRatingChange: (action: CurationAction | "clear") => void;
+  /** Fires once a rating is confirmed and the close has been scheduled — lets
+   * the parent know to start the underlying row's exit animation once this
+   * modal has had time to finish closing (sequential, not simultaneous). */
+  onRated?: () => void;
   fundingNote?: FundingNote;
   starred: boolean;
   onToggleFavorite: (starred: boolean) => void;
 }) {
+  const [confirmed, setConfirmed] = useState<CurationAction | "clear" | null>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Reset the confirmation state whenever a different company opens, and
+  // clear any pending close timer so switching companies mid-dwell can't
+  // close the wrong one later.
+  useEffect(() => {
+    setConfirmed(null);
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  }, [open, company?.slug]);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    };
+  }, []);
+
   if (!company) return null;
 
   function handleRate(action: CurationAction | "clear") {
     onRatingChange(action);
-    onOpenChange(false);
+    setConfirmed(action);
+
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = setTimeout(() => {
+      onRated?.();
+      onOpenChange(false);
+    }, DWELL_MS);
   }
 
   const launchedDate = company.launched_at
@@ -152,7 +196,21 @@ export function CompanyModal({
         </DialogBody>
 
         <div className="flex shrink-0 items-center justify-between border-t border-border/70 pt-4">
-          <span className="text-sm text-muted-foreground">Rate this company</span>
+          <span
+            className={cn(
+              "flex items-center gap-1.5 text-sm transition-colors duration-150",
+              confirmed ? "font-medium text-emerald-500" : "text-muted-foreground",
+            )}
+          >
+            {confirmed ? (
+              <>
+                <CheckCircle2 className="size-4 shrink-0" />
+                {confirmed === "clear" ? "Rating cleared" : RATED_LABEL[confirmed]}
+              </>
+            ) : (
+              "Rate this company"
+            )}
+          </span>
           <LikeDislike value={rating} onChange={handleRate} size="icon" />
         </div>
       </DialogContent>
