@@ -7,7 +7,7 @@ This repo holds the Python data pipeline (this README) and a Next.js
 exploration dashboard in [`web/`](web/README.md) — `cd web && pnpm dev` to
 browse the current (and any future) data without touching Python.
 
-> Planning / source-of-truth docs live in the parent `Claude Discussions/YC_Mind/`
+> Planning / source-of-truth docs live in the parent `ZBrain/YC_Mind/`
 > folder (`00_qa_log.md`, `01_planning.md`).
 
 ## How it works
